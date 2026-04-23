@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Banknote outline -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M6,14 Q6,12 8,12 L40,12 Q42,12 42,14 L42,34 Q42,36 40,36 L8,36 Q6,36 6,34 Z"
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="2"
+        android:fillAlpha="0.15"/>
+    <path
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M6,14 Q6,12 8,12 L40,12 Q42,12 42,14 L42,34 Q42,36 40,36 L8,36 Q6,36 6,34 Z"/>
+    <!-- Circle in center (portrait of person on banknote) -->
+    <path
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000"
+        android:pathData="M24,24 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0"/>
+    <!-- Dollar sign -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M23.5,20.5 L23.5,19.5 L24.5,19.5 L24.5,20.5 Q26.5,20.8 26.5,22.5 Q26.5,24 24.5,24.3 L24.5,26 Q26,25.8 26.5,27.5 Q26.5,29.2 24.5,29.5 L24.5,30.5 L23.5,30.5 L23.5,29.5 Q21.5,29.2 21.5,27.5 L22.5,27.5 Q22.5,28.5 24,28.5 Q25.5,28.5 25.5,27.5 Q25.5,26.5 23.5,26.3 L23.5,24.3 Q21.5,24 21.5,22.5 Q21.5,20.8 23.5,20.5 Z M23.5,21.5 Q22.5,21.8 22.5,22.5 Q22.5,23.2 23.5,23.4 Z M24.5,24.9 L24.5,26.8 Q25.5,26.5 25.5,25.9 Q25.5,25.1 24.5,24.9 Z"/>
+    <!-- Left strip -->
+    <path
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="1.2"
+        android:fillColor="#00000000"
+        android:pathData="M10,18 L10,30"/>
+    <!-- Right strip -->
+    <path
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="1.2"
+        android:fillColor="#00000000"
+        android:pathData="M38,18 L38,30"/>
+</vector>
+
