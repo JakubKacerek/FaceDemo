@@ -14,6 +14,11 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
+    <com.example.facedemo.ObjectDetectionOverlay
+        android:id="@+id/objectDetectionOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
     <com.example.facedemo.BanknoteOverlay
         android:id="@+id/banknoteOverlay"
         android:layout_width="match_parent"

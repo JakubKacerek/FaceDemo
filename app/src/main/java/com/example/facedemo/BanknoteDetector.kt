@@ -7,13 +7,12 @@ import android.util.Log
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.Locale
 
 /**
- * Represents a single detected object.
- * @param label       Class name (e.g. "person", "car")
+ * Represents a single detected banknote.
+ * @param label       Class name — initially "Class_X" until labels are identified
  * @param confidence  Detection confidence 0-1
- * @param boundingBox Normalised bounding box [0,1] in image space (left, top, right, bottom)
+ * @param boundingBox Normalised bounding box [0,1] (left, top, right, bottom)
  */
 data class BanknoteDetection(
     val label: String,
@@ -22,35 +21,37 @@ data class BanknoteDetection(
 )
 
 /**
- * Wrapper around a TFLite object-detection model (YOLO / SSD style outputs).
+ * TFLite detector for the banknote_detector.tflite model.
+ *
+ * HOW TO IDENTIFY LABELS:
+ *  1. Enable Debug Mode in the app settings.
+ *  2. Point the camera at a banknote.
+ *  3. Check the debug log for "[BanknoteDetector] Hit: Class_X conf=0.XX" lines.
+ *  4. Note the class index X and look up what banknote it corresponds to.
+ *  5. Create assets/banknote_labels.txt (one label per line, index 0 first).
+ *
+ * Handles both YOLO single-output and SSD/TF-OD-API 4-output formats automatically.
  */
 class BanknoteDetector(context: Context) {
 
     companion object {
-        private const val TAG = "YoloObjectDetector"
-        private val MODEL_CANDIDATES = listOf(
-            "yolo_coco_float32_float32.tflite", // preferred generic YOLO model (COCO-80)
-            "yolo_coco_float32.tflite",
-            "coco_yolo_float32.tflite",
-            "banknote_detector.tflite"  // backward compatibility with existing setups
-        )
-        private const val LABELS_FILE = "coco_labels.txt"
-        private const val CONFIDENCE_THRESHOLD = 0.45f
-        private const val OBJECTNESS_THRESHOLD = 0.35f
-        private const val CLASS_THRESHOLD = 0.25f
+        private const val TAG = "BanknoteDetector"
+        private const val MODEL_FILE = "banknote_detector.tflite"
+        private const val LABELS_FILE = "banknote_labels.txt"
+
+        // Lower threshold for initial testing — tighten once labels are identified
+        private const val CONFIDENCE_THRESHOLD = 0.35f
+        private const val OBJECTNESS_THRESHOLD = 0.25f
+        private const val CLASS_THRESHOLD = 0.20f
         private const val NMS_IOU_THRESHOLD = 0.45f
-        private const val MAX_DETECTIONS = 100
-        private const val MAX_PRE_NMS_CANDIDATES = 300
+        private const val MAX_DETECTIONS = 20
     }
 
     private val interpreter: Interpreter
     private val labels: List<String>
-
     private val inputSize: Int
     private val outputCount: Int
-
     private var isYoloFormat = false
-    private var isSSDFormat = false
     private var yoloShapeLogged = false
 
     /** true while the interpreter is busy running inference */
@@ -61,72 +62,56 @@ class BanknoteDetector(context: Context) {
         val opts = Interpreter.Options().apply { numThreads = 2 }
         interpreter = Interpreter(loadModelFile(context), opts)
 
-        // ── Read input size from model ────────────────────────────────────────
+        // ── Log input tensor ──────────────────────────────────────────────────
         val inTensor = interpreter.getInputTensor(0)
-        val inShape = inTensor.shape() // [1, H, W, 3]
+        val inShape  = inTensor.shape()
         inputSize = if (inShape.size >= 3) inShape[1] else 320
-        Log.d(TAG, "Model input size: $inputSize x $inputSize")
-        DebugLogger.log(TAG, "Model input size: $inputSize x $inputSize")
-        DebugLogger.log(TAG, "Input tensor type: ${inTensor.dataType()}, shape=${inShape.contentToString()}")
 
-        // ── Probe output count & shapes ───────────────────────────────────────
+        Log.d(TAG, "=== BanknoteDetector init ===")
+        Log.d(TAG, "Input  shape : ${inShape.contentToString()}  (type=${inTensor.dataType()})")
+        DebugLogger.log(TAG, "Input shape: ${inShape.contentToString()} type=${inTensor.dataType()}")
+
+        // ── Log all output tensors ────────────────────────────────────────────
         outputCount = interpreter.outputTensorCount
-        Log.d(TAG, "Model output count: $outputCount")
-        DebugLogger.log(TAG, "Model output count: $outputCount")
+        Log.d(TAG, "Output count : $outputCount")
+        DebugLogger.log(TAG, "Output tensors: $outputCount")
+
         for (i in 0 until outputCount) {
-            val outTensor = interpreter.getOutputTensor(i)
-            val shape = outTensor.shape()
-            Log.d(TAG, "  output[$i] shape: ${shape.contentToString()}")
-            DebugLogger.log(TAG, "output[$i] type=${outTensor.dataType()}, shape=${shape.contentToString()}")
+            val t = interpreter.getOutputTensor(i)
+            Log.d(TAG, "  output[$i] shape=${t.shape().contentToString()} type=${t.dataType()}")
+            DebugLogger.log(TAG, "output[$i] shape=${t.shape().contentToString()} type=${t.dataType()}")
         }
 
-        when {
-            outputCount == 1 -> {
-                // YOLO-style: [1, num_predictions, 5 + num_classes]
-                isYoloFormat = true
-                Log.d(TAG, "Detected YOLO single-output format")
-            }
-            outputCount >= 4 -> {
-                // SSD / TF OD API: boxes, classes, scores, numDets
-                isSSDFormat = true
-                Log.d(TAG, "Detected SSD/TF-OD-API 4-output format")
-            }
-            else -> {
-                // Fallback – treat as SSD with whatever outputs exist
-                isSSDFormat = true
-                Log.d(TAG, "Unknown format ($outputCount outputs) - trying SSD fallback")
-            }
-        }
+        isYoloFormat = outputCount == 1
+        Log.d(TAG, "Format: ${if (isYoloFormat) "YOLO single-output" else "SSD / TF-OD-API ($outputCount outputs)"}")
+        DebugLogger.log(TAG, "Format: ${if (isYoloFormat) "YOLO" else "SSD"}")
 
-        // ── Load labels ───────────────────────────────────────────────────────
+        // ── Load labels if available ──────────────────────────────────────────
         labels = try {
-            context.assets.open(LABELS_FILE)
-                .bufferedReader().readLines().filter { it.isNotBlank() }
+            context.assets.open(LABELS_FILE).bufferedReader().readLines().filter { it.isNotBlank() }
+                .also { DebugLogger.log(TAG, "Loaded ${it.size} labels from $LABELS_FILE") }
         } catch (_: Exception) {
-            (0 until 80).map { "Class_$it" }
+            // Derive class count from output tensor to build placeholder labels
+            val classCount = deriveClassCount()
+            List(classCount) { "Class_$it" }
+                .also { DebugLogger.log(TAG, "No $LABELS_FILE found — using ${it.size} placeholder labels") }
         }
-        Log.d(TAG, "Loaded ${labels.size} labels")
-        DebugLogger.log(TAG, "Loaded labels: ${labels.size}")
+
+        Log.d(TAG, "Labels: ${labels.size}")
+        Log.d(TAG, "=== BanknoteDetector ready ===")
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-
     /**
-     * Run detection on [bitmap].
-     * The bitmap may be any size; it is scaled internally.
-     * Call on a background thread.
+     * Run banknote detection on [bitmap]. Call on a background thread.
      */
     fun detect(bitmap: Bitmap): List<BanknoteDetection> {
         if (isBusy) return emptyList()
         isBusy = true
         return try {
-            when {
-                isYoloFormat -> runYolo(bitmap)
-                else -> runSSD(bitmap)
-            }
+            if (isYoloFormat) runYolo(bitmap) else runSSD(bitmap)
         } catch (e: Exception) {
             Log.e(TAG, "Detection failed: ${e.message}", e)
-            DebugLogger.log(TAG, "Detection failed: ${e.message}")
+            DebugLogger.log(TAG, "Detection error: ${e.message}")
             emptyList()
         } finally {
             isBusy = false
@@ -138,27 +123,21 @@ class BanknoteDetector(context: Context) {
     // ─── SSD / TF OD API ─────────────────────────────────────────────────────
 
     private fun runSSD(bitmap: Bitmap): List<BanknoteDetection> {
-        val input = preprocessBitmap(bitmap)
+        val input    = preprocessBitmap(bitmap)
+        val boxShape = interpreter.getOutputTensor(0).shape()
+        val maxDet   = if (boxShape.size >= 2) boxShape[1] else MAX_DETECTIONS
 
-        // Dynamically size output buffers from model metadata
-        val boxShape = interpreter.getOutputTensor(0).shape()   // [1, maxDet, 4]
-        val maxDet = if (boxShape.size >= 2) boxShape[1] else MAX_DETECTIONS
-
-        val boxes = Array(1) { Array(maxDet) { FloatArray(4) } }
+        val boxes   = Array(1) { Array(maxDet) { FloatArray(4) } }
         val classes = Array(1) { FloatArray(maxDet) }
-        val scores = Array(1) { FloatArray(maxDet) }
+        val scores  = Array(1) { FloatArray(maxDet) }
         val numDets = FloatArray(1)
 
-        val outputs = mutableMapOf<Int, Any>(
-            0 to boxes,
-            1 to classes,
-            2 to scores
-        )
+        val outputs = mutableMapOf<Int, Any>(0 to boxes, 1 to classes, 2 to scores)
         if (outputCount >= 4) outputs[3] = numDets
 
         interpreter.runForMultipleInputsOutputs(arrayOf(input), outputs)
 
-        val count = if (outputCount >= 4) numDets[0].toInt().coerceIn(0, maxDet) else maxDet
+        val count   = if (outputCount >= 4) numDets[0].toInt().coerceIn(0, maxDet) else maxDet
         val results = mutableListOf<BanknoteDetection>()
 
         for (i in 0 until count) {
@@ -166,30 +145,27 @@ class BanknoteDetector(context: Context) {
             if (score < CONFIDENCE_THRESHOLD) continue
 
             val classIdx = classes[0][i].toInt()
-            val label = labels.getOrElse(classIdx) { "Class_$classIdx" }
+            val label    = labels.getOrElse(classIdx) { "Class_$classIdx" }
 
             // TF OD API: [top, left, bottom, right] normalised
-            val top = boxes[0][i][0].coerceIn(0f, 1f)
-            val left = boxes[0][i][1].coerceIn(0f, 1f)
+            val top    = boxes[0][i][0].coerceIn(0f, 1f)
+            val left   = boxes[0][i][1].coerceIn(0f, 1f)
             val bottom = boxes[0][i][2].coerceIn(0f, 1f)
-            val right = boxes[0][i][3].coerceIn(0f, 1f)
+            val right  = boxes[0][i][3].coerceIn(0f, 1f)
 
+            DebugLogger.log(TAG, "Hit: $label conf=${"%.2f".format(score)}")
             results.add(BanknoteDetection(label, score, RectF(left, top, right, bottom)))
         }
 
-        return nonMaximumSuppression(results)
+        return nms(results)
     }
 
     // ─── YOLO single-output ───────────────────────────────────────────────────
-    // Output shape: [1, num_predictions, 5 + num_classes]  (cx, cy, w, h, obj_conf, cls...)
-    // OR Roboflow export: [1, 5+num_classes, num_predictions]  (transposed)
 
     private fun runYolo(bitmap: Bitmap): List<BanknoteDetection> {
-        val prep = preprocessBitmapLetterbox(bitmap)
-        val input = prep.input
-
+        val prep     = preprocessBitmapLetterbox(bitmap)
         val outShape = interpreter.getOutputTensor(0).shape()
-        Log.d(TAG, "YOLO output shape: ${outShape.contentToString()}")
+
         if (!yoloShapeLogged) {
             DebugLogger.log(TAG, "YOLO output shape: ${outShape.contentToString()}")
             yoloShapeLogged = true
@@ -197,268 +173,171 @@ class BanknoteDetector(context: Context) {
 
         if (outShape.size < 3) return emptyList()
 
-        // Detect transposed layout [1, cols, rows] vs normal [1, rows, cols]
-        val dim1 = outShape[1]
-        val dim2 = outShape[2]
+        val dim1       = outShape[1]
+        val dim2       = outShape[2]
+        val transposed = dim1 < dim2 && dim1 >= 5
+        val numPreds   = if (transposed) dim2 else dim1
+        val numCols    = if (transposed) dim1 else dim2
 
-        // If dim1 looks like feature columns and dim2 is large -> transposed [1, cols, preds]
-        val transposed = (dim1 < dim2 && dim1 >= 5)
+        val hasObjectness = numCols >= labels.size + 5
 
-        val numPreds = if (transposed) dim2 else dim1
-        val numCols = if (transposed) dim1 else dim2
-
-        val hasObjectness = when {
-            numCols == labels.size + 5 -> true
-            numCols == labels.size + 4 -> false
-            else -> numCols > labels.size + 4
-        }
-
-        // Allocate raw output
         val rawOut = Array(1) { Array(dim1) { FloatArray(dim2) } }
-        interpreter.run(input, rawOut)
+        interpreter.run(prep.input, rawOut)
 
         val results = mutableListOf<BanknoteDetection>()
 
         for (i in 0 until numPreds) {
-            val pred = if (transposed) {
-                FloatArray(numCols) { c -> rawOut[0][c][i] }
-            } else {
-                rawOut[0][i]
-            }
-
+            val pred = if (transposed) FloatArray(numCols) { c -> rawOut[0][c][i] } else rawOut[0][i]
             if (pred.size < 5) continue
 
-            val cx = pred[0]
-            val cy = pred[1]
-            val w = pred[2]
-            val h = pred[3]
+            val cx = pred[0]; val cy = pred[1]; val w = pred[2]; val h = pred[3]
 
-            val classAndScore = bestClassScore(pred, hasObjectness) ?: continue
-            val classIdx = classAndScore.first
-            val finalScore = classAndScore.second
+            var bestClass = -1; var bestScore = 0f
+            if (hasObjectness) {
+                val obj = normalizeScore(pred[4])
+                if (obj < OBJECTNESS_THRESHOLD) continue
+                for (j in 5 until pred.size) {
+                    val cls = normalizeScore(pred[j])
+                    val s   = obj * cls
+                    if (s > bestScore && cls >= CLASS_THRESHOLD) { bestScore = s; bestClass = j - 5 }
+                }
+            } else {
+                for (j in 4 until pred.size) {
+                    val s = normalizeScore(pred[j])
+                    if (s > bestScore) { bestScore = s; bestClass = j - 4 }
+                }
+            }
 
-            val label = labels.getOrElse(classIdx) { "Class_$classIdx" }
-            val classThreshold = classSpecificThreshold(label)
-            if (finalScore < classThreshold) continue
+            if (bestClass < 0 || bestScore < CONFIDENCE_THRESHOLD) continue
 
-            // Some exports output pixel-space (0..inputSize), others normalized (0..1).
+            val label    = labels.getOrElse(bestClass) { "Class_$bestClass" }
             val maxCoord = maxOf(cx, cy, w, h)
-            val usesNormalizedCoords = maxCoord <= 2f
+            val norm     = maxCoord <= 2f
 
-            val modelCx = if (usesNormalizedCoords) cx * inputSize else cx
-            val modelCy = if (usesNormalizedCoords) cy * inputSize else cy
-            val modelW = if (usesNormalizedCoords) w * inputSize else w
-            val modelH = if (usesNormalizedCoords) h * inputSize else h
+            val mCx = if (norm) cx * inputSize else cx
+            val mCy = if (norm) cy * inputSize else cy
+            val mW  = if (norm) w  * inputSize else w
+            val mH  = if (norm) h  * inputSize else h
 
-            val leftModel = modelCx - modelW / 2f
-            val topModel = modelCy - modelH / 2f
-            val rightModel = modelCx + modelW / 2f
-            val bottomModel = modelCy + modelH / 2f
-
-            // Undo letterbox transform so boxes are mapped to original bitmap geometry.
-            val leftSrc = (leftModel - prep.padX) / prep.scale
-            val topSrc = (topModel - prep.padY) / prep.scale
-            val rightSrc = (rightModel - prep.padX) / prep.scale
-            val bottomSrc = (bottomModel - prep.padY) / prep.scale
-
-            val left = (leftSrc / prep.srcW).coerceIn(0f, 1f)
-            val top = (topSrc / prep.srcH).coerceIn(0f, 1f)
-            val right = (rightSrc / prep.srcW).coerceIn(0f, 1f)
-            val bottom = (bottomSrc / prep.srcH).coerceIn(0f, 1f)
+            val left   = ((mCx - mW / 2f - prep.padX) / prep.scale / prep.srcW).coerceIn(0f, 1f)
+            val top    = ((mCy - mH / 2f - prep.padY) / prep.scale / prep.srcH).coerceIn(0f, 1f)
+            val right  = ((mCx + mW / 2f - prep.padX) / prep.scale / prep.srcW).coerceIn(0f, 1f)
+            val bottom = ((mCy + mH / 2f - prep.padY) / prep.scale / prep.srcH).coerceIn(0f, 1f)
 
             if (right <= left || bottom <= top) continue
-            results.add(BanknoteDetection(label, finalScore, RectF(left, top, right, bottom)))
+
+            DebugLogger.log(TAG, "Hit: $label conf=${"%.2f".format(bestScore)}")
+            results.add(BanknoteDetection(label, bestScore, RectF(left, top, right, bottom)))
         }
 
-        val preNms = results.sortedByDescending { it.confidence }.take(MAX_PRE_NMS_CANDIDATES)
-        return nonMaximumSuppression(preNms).take(MAX_DETECTIONS)
-    }
-
-    // Supports both output styles:
-    // - [cx, cy, w, h, obj, cls1..]
-    // - [cx, cy, w, h, cls1..]
-    private fun bestClassScore(pred: FloatArray, hasObjectness: Boolean): Pair<Int, Float>? {
-        if (pred.size <= 4) return null
-
-        var bestClass = -1
-        var bestScore = 0f
-
-        if (hasObjectness) {
-            if (pred.size <= 5) return null
-            val obj = normalizeScore(pred[4])
-            if (obj < OBJECTNESS_THRESHOLD) return null
-            for (i in 5 until pred.size) {
-                val cls = normalizeScore(pred[i])
-                if (cls < CLASS_THRESHOLD) continue
-                val score = obj * cls
-                if (score > bestScore) {
-                    bestScore = score
-                    bestClass = i - 5
-                }
-            }
-        } else {
-            for (i in 4 until pred.size) {
-                val score = normalizeScore(pred[i])
-                if (score > bestScore) {
-                    bestScore = score
-                    bestClass = i - 4
-                }
-            }
-        }
-
-        return if (bestClass >= 0) Pair(bestClass, bestScore) else null
-    }
-
-    // Converts either logits or probabilities to a stable 0..1 score.
-    private fun normalizeScore(raw: Float): Float {
-        return if (raw in 0f..1f) raw else sigmoid(raw)
-    }
-
-    private fun sigmoid(x: Float): Float {
-        val clamped = x.coerceIn(-20f, 20f)
-        return (1f / (1f + kotlin.math.exp(-clamped)))
+        return nms(results.sortedByDescending { it.confidence }).take(MAX_DETECTIONS)
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private fun nonMaximumSuppression(input: List<BanknoteDetection>): List<BanknoteDetection> {
-        if (input.isEmpty()) return emptyList()
-
-        val sorted = input.sortedByDescending { it.confidence }.toMutableList()
+    private fun nms(input: List<BanknoteDetection>): List<BanknoteDetection> {
+        val sorted   = input.sortedByDescending { it.confidence }.toMutableList()
         val selected = mutableListOf<BanknoteDetection>()
-
         while (sorted.isNotEmpty()) {
             val best = sorted.removeAt(0)
             selected.add(best)
-
-            val iter = sorted.iterator()
-            while (iter.hasNext()) {
-                val candidate = iter.next()
-                if (candidate.label == best.label && iou(best.boundingBox, candidate.boundingBox) > NMS_IOU_THRESHOLD) {
-                    iter.remove()
-                }
-            }
+            sorted.removeAll { it.label == best.label && iou(best.boundingBox, it.boundingBox) > NMS_IOU_THRESHOLD }
         }
-
         return selected
     }
 
     private fun iou(a: RectF, b: RectF): Float {
-        val interLeft = maxOf(a.left, b.left)
-        val interTop = maxOf(a.top, b.top)
-        val interRight = minOf(a.right, b.right)
-        val interBottom = minOf(a.bottom, b.bottom)
+        val iL = maxOf(a.left, b.left); val iT = maxOf(a.top, b.top)
+        val iR = minOf(a.right, b.right); val iB = minOf(a.bottom, b.bottom)
+        if (iR <= iL || iB <= iT) return 0f
+        val inter = (iR - iL) * (iB - iT)
+        val union = a.width() * a.height() + b.width() * b.height() - inter
+        return if (union <= 0f) 0f else inter / union
+    }
 
-        if (interRight <= interLeft || interBottom <= interTop) return 0f
+    private fun normalizeScore(raw: Float): Float =
+        if (raw in 0f..1f) raw else 1f / (1f + kotlin.math.exp(-raw.coerceIn(-20f, 20f)))
 
-        val interArea = (interRight - interLeft) * (interBottom - interTop)
-        val unionArea = a.width() * a.height() + b.width() * b.height() - interArea
-        return if (unionArea <= 0f) 0f else interArea / unionArea
+    private fun deriveClassCount(): Int {
+        val shape = interpreter.getOutputTensor(0).shape()
+        // YOLO: [1, preds, 5+classes] or [1, 5+classes, preds]
+        // SSD:  [1, maxDet, 4] — classes come from tensor 1
+        return when {
+            outputCount == 1 && shape.size >= 3 -> {
+                val dim1 = shape[1]; val dim2 = shape[2]
+                val cols = if (dim1 < dim2 && dim1 >= 5) dim1 else dim2
+                maxOf(cols - 5, 1)
+            }
+            outputCount >= 2 -> {
+                val clsShape = interpreter.getOutputTensor(1).shape()
+                if (clsShape.size >= 2) clsShape[1] else 10
+            }
+            else -> 10
+        }
     }
 
     private fun loadModelFile(context: Context): ByteBuffer {
-        var loadedBytes: ByteArray? = null
-        var loadedName: String? = null
-
-        for (candidate in MODEL_CANDIDATES) {
-            try {
-                loadedBytes = context.assets.open(candidate).use { it.readBytes() }
-                loadedName = candidate
-                break
-            } catch (_: Exception) {
-                // try next candidate
-            }
+        val bytes = try {
+            context.assets.open(MODEL_FILE).use { it.readBytes() }
+        } catch (e: Exception) {
+            throw IllegalStateException("Model '$MODEL_FILE' not found in assets.", e)
         }
-
-        if (loadedBytes == null || loadedName == null) {
-            throw IllegalStateException(
-                "Model not found in assets. Expected one of: ${MODEL_CANDIDATES.joinToString()}"
-            )
-        }
-
-        Log.d(TAG, "Loaded model asset: $loadedName (${loadedBytes.size} bytes)")
-        DebugLogger.log(TAG, "Loaded model asset: $loadedName (${loadedBytes.size} bytes)")
-
-        val buffer = ByteBuffer.allocateDirect(loadedBytes.size)
-        buffer.put(loadedBytes)
-        buffer.rewind()
-        return buffer
+        Log.d(TAG, "Loaded $MODEL_FILE (${bytes.size} bytes)")
+        DebugLogger.log(TAG, "Loaded $MODEL_FILE (${bytes.size} bytes)")
+        return ByteBuffer.allocateDirect(bytes.size).also { it.put(bytes); it.rewind() }
     }
 
     private fun preprocessBitmap(bitmap: Bitmap): ByteBuffer {
         val scaled = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
         val buffer = ByteBuffer.allocateDirect(4 * inputSize * inputSize * 3)
             .also { it.order(ByteOrder.nativeOrder()) }
-
         val pixels = IntArray(inputSize * inputSize)
         scaled.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
         for (px in pixels) {
             buffer.putFloat(((px shr 16) and 0xFF) / 255f)
-            buffer.putFloat(((px shr 8) and 0xFF) / 255f)
-            buffer.putFloat((px and 0xFF) / 255f)
+            buffer.putFloat(((px shr 8)  and 0xFF) / 255f)
+            buffer.putFloat((px          and 0xFF) / 255f)
         }
-
         if (scaled != bitmap) scaled.recycle()
         buffer.rewind()
         return buffer
     }
 
-    private data class LetterboxPreprocessResult(
+    private data class LetterboxResult(
         val input: ByteBuffer,
-        val srcW: Float,
-        val srcH: Float,
-        val scale: Float,
-        val padX: Float,
-        val padY: Float
+        val srcW: Float, val srcH: Float,
+        val scale: Float, val padX: Float, val padY: Float
     )
 
-    private fun preprocessBitmapLetterbox(bitmap: Bitmap): LetterboxPreprocessResult {
-        val srcW = bitmap.width
-        val srcH = bitmap.height
-        val scale = minOf(inputSize.toFloat() / srcW.toFloat(), inputSize.toFloat() / srcH.toFloat())
+    private fun preprocessBitmapLetterbox(bitmap: Bitmap): LetterboxResult {
+        val srcW  = bitmap.width; val srcH = bitmap.height
+        val scale = minOf(inputSize.toFloat() / srcW, inputSize.toFloat() / srcH)
+        val rW    = (srcW * scale).toInt().coerceAtLeast(1)
+        val rH    = (srcH * scale).toInt().coerceAtLeast(1)
+        val padX  = (inputSize - rW) / 2f
+        val padY  = (inputSize - rH) / 2f
 
-        val resizedW = (srcW * scale).toInt().coerceAtLeast(1)
-        val resizedH = (srcH * scale).toInt().coerceAtLeast(1)
-        val padX = ((inputSize - resizedW) / 2f)
-        val padY = ((inputSize - resizedH) / 2f)
-
-        val resized = Bitmap.createScaledBitmap(bitmap, resizedW, resizedH, true)
+        val resized     = Bitmap.createScaledBitmap(bitmap, rW, rH, true)
         val letterboxed = Bitmap.createBitmap(inputSize, inputSize, Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(letterboxed)
-        canvas.drawColor(android.graphics.Color.BLACK)
-        canvas.drawBitmap(resized, padX, padY, null)
+        android.graphics.Canvas(letterboxed).apply {
+            drawColor(android.graphics.Color.BLACK)
+            drawBitmap(resized, padX, padY, null)
+        }
 
         val buffer = ByteBuffer.allocateDirect(4 * inputSize * inputSize * 3)
             .also { it.order(ByteOrder.nativeOrder()) }
-
         val pixels = IntArray(inputSize * inputSize)
         letterboxed.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
         for (px in pixels) {
             buffer.putFloat(((px shr 16) and 0xFF) / 255f)
-            buffer.putFloat(((px shr 8) and 0xFF) / 255f)
-            buffer.putFloat((px and 0xFF) / 255f)
+            buffer.putFloat(((px shr 8)  and 0xFF) / 255f)
+            buffer.putFloat((px          and 0xFF) / 255f)
         }
 
         if (resized != bitmap) resized.recycle()
         letterboxed.recycle()
         buffer.rewind()
 
-        return LetterboxPreprocessResult(
-            input = buffer,
-            srcW = srcW.toFloat(),
-            srcH = srcH.toFloat(),
-            scale = scale,
-            padX = padX,
-            padY = padY
-        )
-    }
-
-    private fun classSpecificThreshold(label: String): Float {
-        // Slightly stricter for classes that were frequently false-positive in tests.
-        return when (label.lowercase(Locale.US)) {
-            "dog" -> 0.60f
-            "traffic light" -> 0.55f
-            else -> CONFIDENCE_THRESHOLD
-        }
+        return LetterboxResult(buffer, srcW.toFloat(), srcH.toFloat(), scale, padX, padY)
     }
 }

@@ -17,17 +17,29 @@ class CaptureManager(private val context: Context) {
     }
 
     /**
-     * Save a cropped face bitmap
+     * Save a full-screen capture (camera + overlays).
+     */
+    fun saveScreenCapture(bitmap: Bitmap): String? {
+        return try {
+            val fileName = "capture_${System.currentTimeMillis()}.jpg"
+            val file = File(captureDir, fileName)
+            FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }
+            Log.d("CaptureManager", "Screen captured: ${file.absolutePath}")
+            file.absolutePath
+        } catch (e: Exception) {
+            Log.e("CaptureManager", "Error saving screen capture", e)
+            null
+        }
+    }
+
+    /**
+     * Save a cropped face bitmap.
      */
     fun saveFaceCapture(bitmap: Bitmap, name: String = ""): String? {
         return try {
             val fileName = "face_${System.currentTimeMillis()}_${name.replace(" ", "_")}.jpg"
             val file = File(captureDir, fileName)
-
-            FileOutputStream(file).use { fos ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos)
-            }
-
+            FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
             Log.d("CaptureManager", "Face captured: ${file.absolutePath}")
             file.absolutePath
         } catch (e: Exception) {

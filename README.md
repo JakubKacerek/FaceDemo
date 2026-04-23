@@ -12,7 +12,7 @@
 3. [Detekce tváří](#3-detekce-tváří)
 4. [Identifikace a rozpoznávání tváří](#4-identifikace-a-rozpoznávání-tváří)
 5. [Překryvné vrstvy (Overlay)](#5-překryvné-vrstvy-overlay)
-6. [Detekce objektů – YOLO](#6-detekce-objektů--yolo)
+6. [Detekce objektů](#6-detekce-objektů)
 7. [Zachytávání snímků a galerie](#7-zachytávání-snímků-a-galerie)
 8. [Nastavení](#8-nastavení)
 9. [Navigační menu](#9-navigační-menu)
@@ -24,15 +24,17 @@
 
 ## 1. Přehled aplikace
 
-FaceDemo je Android aplikace pro real-time detekci a identifikaci tváří pomocí kamery. Aplikace kombinuje Google ML Kit pro detekci obličejů s vlastním systémem rozpoznávání na základě geometrických deskriptorů bodů tváře (landmarks). Zároveň podporuje detekci obecných objektů pomocí YOLO modelu.
+FaceDemo je Android aplikace pro real-time detekci a identifikaci tváří pomocí kamery. Aplikace kombinuje Google ML Kit pro detekci obličejů s vlastním systémem rozpoznávání na základě geometrických deskriptorů bodů tváře (landmarks). Zároveň podporuje detekci obecných objektů pomocí YOLO modelu a detekci bankovek pomocí specializovaného TFLite modelu.
 
 **Hlavní funkce:**
 - Detekce a sledování tváří v reálném čase
 - Identifikace osob podle jména (uložení a rozpoznání)
 - Zobrazení landmarků tváře (oči, nos, ústa, uši, líce)
 - Detekce úsměvu a stavu očí
-- Detekce objektů pomocí YOLO (TFLite)
-- Zachytávání a ukládání fotografií tváří do galerie
+- Detekce obecných objektů pomocí YOLO/COCO (TFLite)
+- Detekce bankovek pomocí specializovaného modelu (`banknote_detector.tflite`)
+- Zachytávání obrazovky včetně všech aktivních překryvných vrstev
+- Galerie uložených snímků s náhledem a mazáním
 
 ---
 
@@ -64,7 +66,7 @@ Přepíná mezi přední (`LENS_FACING_FRONT`) a zadní (`LENS_FACING_BACK`) kam
 ```
 fun updateOverlayTransforms(mediaImage: android.media.Image, rotation: Int)
 ```
-Přepočítává `scale`, `offsetX` a `offsetY` pro obě překryvné vrstvy (`FaceOverlay`, `BanknoteOverlay`) tak, aby bounding boxy z ML Kit přesně odpovídaly pozici v náhledovém okně. Bere v úvahu rotaci snímku (0/90/180/270°).
+Přepočítává `scale`, `offsetX` a `offsetY` pro všechny tři překryvné vrstvy (`FaceOverlay`, `ObjectDetectionOverlay`, `BanknoteOverlay`) tak, aby bounding boxy z ML Kit a TFLite modelů přesně odpovídaly pozici v náhledovém okně. Bere v úvahu rotaci snímku (0/90/180/270°).
 
 ### Životní cyklus
 
@@ -74,7 +76,7 @@ Přepočítává `scale`, `offsetX` a `offsetY` pro obě překryvné vrstvy (`Fa
 | `onResume()` | Obnoví data tváří, přečte nastavení ze SharedPreferences, zavolá `applyDebugUiState()` (viditelnost debug panelu + registrace listeneru), aktualizuje menu |
 | `onPause()` | Odregistruje debug posluchač |
 | `onStart()` | Registruje debug posluchač (pokud je debug mód zapnutý) |
-| `onDestroy()` | Ukončí vlákno kamery, uvolní YOLO detektor |
+| `onDestroy()` | Ukončí vlákno kamery, uvolní ObjectDetector i BanknoteDetector |
 
 ---
 
@@ -106,7 +108,8 @@ Pokud tvář nebyla nalezena přes `trackingId`, spustí se `FaceDescriptor.comp
 |----------|---------|-------|
 | `recognizeIntervalMs` | 200 ms | Minimální interval mezi deskriptorovým rozpoznáním pro jednu tvář |
 | `descriptorUpdateIntervalMs` | 800 ms | Minimální interval mezi aktualizací uloženého deskriptoru |
-| `banknoteDetectionIntervalMs` | 120 ms | Minimální interval mezi YOLO detekcemi |
+| `objectDetectionIntervalMs` | 120 ms | Minimální interval mezi YOLO/COCO detekcemi |
+| `banknoteDetectionIntervalMs` | 200 ms | Minimální interval mezi detekcemi bankovek |
 | `debugLogIntervalMs` | 3000 ms | Minimální interval mezi debug výpisy |
 
 ### Uložení jména tváře
@@ -311,33 +314,55 @@ Detekuje kliknutí na oblast tváře a spustí callback `onFaceClick`. Oblast kl
 
 ---
 
-### BanknoteOverlay
+### ObjectDetectionOverlay
 
-**Soubor:** `BanknoteOverlay.kt`  
-Vlastní `View` zobrazující výsledky YOLO detekce jako oranžové obdélníky s popisky.
+**Soubor:** `ObjectDetectionOverlay.kt`  
+Vlastní `View` zobrazující výsledky YOLO/COCO detekce jako **oranžové** obdélníky s popisky.
 
 #### Vlastnosti
 
 | Vlastnost | Popis |
 |-----------|-------|
-| `detections` | Seznam detekcí; přiřazení automaticky spustí překreslení (`invalidate()`) |
+| `detections` | Seznam detekcí (`List<ObjectDetection>`); přiřazení automaticky spustí překreslení |
 | `isFrontCamera` | Při `true` horizontálně zrcadlí bounding boxy |
 | `scale`, `offsetX`, `offsetY` | Transformační parametry nastavované z `MainActivity` |
 
 ```
 override fun onDraw(canvas: Canvas)
 ```
-Pro každou detekci nakreslí zaoblený oranžový rámeček a nad ním štítek s názvem třídy a procentuální jistotou na tmavém pozadí.
+Pro každou detekci nakreslí zaoblený oranžový rámeček (#FF9800) a nad ním štítek s názvem třídy a procentuální jistotou na tmavém pozadí.
 
 ---
 
-## 6. Detekce objektů – YOLO
+### BanknoteOverlay
 
-**Soubor:** `BanknoteDetector.kt`
+**Soubor:** `BanknoteOverlay.kt`  
+Vlastní `View` zobrazující výsledky detektoru bankovek jako **zelené** obdélníky s popisky. Vizuálně odlišitelné od `ObjectDetectionOverlay` (oranžová).
 
-Obaluje TFLite interpreter pro detekci objektů. Podporuje jak YOLO (jeden výstup), tak SSD/TF OD API (čtyři výstupy). Model se načítá ze složky `assets/` – prioritně `yolo_coco_float32_float32.tflite`.
+#### Vlastnosti
 
-### Inicializace
+| Vlastnost | Popis |
+|-----------|-------|
+| `detections` | Seznam detekcí (`List<BanknoteDetection>`); přiřazení automaticky spustí překreslení |
+| `isFrontCamera` | Při `true` horizontálně zrcadlí bounding boxy |
+| `scale`, `offsetX`, `offsetY` | Transformační parametry nastavované z `MainActivity` |
+
+```
+override fun onDraw(canvas: Canvas)
+```
+Pro každou detekci nakreslí zaoblený zelený rámeček (#4CAF50) a štítek s názvem třídy a jistotou.
+
+---
+
+## 6. Detekce objektů
+
+### ObjectDetector – YOLO/COCO obecné objekty
+
+**Soubor:** `ObjectDetector.kt`
+
+Obaluje TFLite interpreter pro detekci obecných objektů (COCO třídy). Podporuje jak YOLO (jeden výstup), tak SSD/TF OD API (čtyři výstupy). Model se načítá ze složky `assets/` – prioritně `yolo_coco_float32_float32.tflite`.
+
+#### Inicializace
 
 Při vytvoření objektu se:
 1. Načte TFLite model ze `assets/` (prochází seznam kandidátů `MODEL_CANDIDATES`)
@@ -345,10 +370,10 @@ Při vytvoření objektu se:
 3. Detekuje formát výstupu modelu (YOLO vs. SSD)
 4. Zjistí vstupní rozměr z tensoru modelu
 
-### Hlavní metody
+#### Hlavní metody
 
 ```
-fun detect(bitmap: Bitmap): List<BanknoteDetection>
+fun detect(bitmap: Bitmap): List<ObjectDetection>
 ```
 Spustí inferenci na snímku. Vrátí seznam detekcí po NMS filtrování. Musí být voláno z vlákna na pozadí. Pokud probíhá jiná inference (`isBusy == true`), vrátí prázdný seznam.
 
@@ -357,29 +382,7 @@ fun close()
 ```
 Uvolní TFLite interpreter.
 
-### Interní zpracování
-
-```
-private fun runYolo(bitmap: Bitmap): List<BanknoteDetection>    // YOLO výstup [1, predictions, 5+classes]
-private fun runSSD(bitmap: Bitmap): List<BanknoteDetection>     // SSD výstup [boxes, classes, scores, numDets]
-```
-
-```
-private fun preprocessBitmapLetterbox(bitmap: Bitmap): LetterboxPreprocessResult
-```
-Upraví snímek do čtvercového formátu pro YOLO s letterboxem (černé okraje), aby nedocházelo ke zkreslení. Uchovává parametry (`scale`, `padX`, `padY`) pro zpětný přepočet souřadnic.
-
-```
-private fun preprocessBitmap(bitmap: Bitmap): ByteBuffer
-```
-Jednodušší předzpracování pro SSD – přímé škálování na `inputSize × inputSize`.
-
-```
-private fun nonMaximumSuppression(input: List<BanknoteDetection>): List<BanknoteDetection>
-```
-Algoritmus NMS – odstraní duplicitní bounding boxy stejné třídy s IoU > `NMS_IOU_THRESHOLD` (0.45).
-
-### Prahové hodnoty
+#### Prahové hodnoty
 
 | Konstanta | Hodnota | Popis |
 |-----------|---------|-------|
@@ -392,19 +395,66 @@ Algoritmus NMS – odstraní duplicitní bounding boxy stejné třídy s IoU > `
 
 ---
 
+### BanknoteDetector – specializovaný detektor bankovek
+
+**Soubor:** `BanknoteDetector.kt`
+
+Obaluje TFLite interpreter výhradně pro model `banknote_detector.tflite`. Podporuje stejné výstupní formáty jako `ObjectDetector` (YOLO / SSD). Při inicializaci loguje **všechny** tvary tensorů do `DebugLogger`, což umožňuje identifikovat neznámé třídy modelu.
+
+#### Jak identifikovat labely
+
+1. Zapni Debug Mode v nastavení aplikace.
+2. Namiř kameru na bankovku.
+3. V debug logu hledej řádky `[BanknoteDetector] Hit: Class_X conf=0.XX`.
+4. Zjisti, kterému nominálu odpovídá index X.
+5. Vytvoř soubor `assets/banknote_labels.txt` (jeden label na řádek, index 0 jako první).
+
+Dokud soubor `banknote_labels.txt` neexistuje, detektor používá zástupné labely `Class_0`, `Class_1`, …
+
+#### Hlavní metody
+
+```
+fun detect(bitmap: Bitmap): List<BanknoteDetection>
+```
+Spustí inferenci na snímku. Funguje stejně jako `ObjectDetector.detect()`.
+
+```
+fun close()
+```
+Uvolní TFLite interpreter.
+
+#### Prahové hodnoty
+
+Záměrně nižší než u `ObjectDetector` pro snazší ladění při neznámých labelech:
+
+| Konstanta | Hodnota | Popis |
+|-----------|---------|-------|
+| `CONFIDENCE_THRESHOLD` | 0.35 | Minimální celková jistota detekce |
+| `OBJECTNESS_THRESHOLD` | 0.25 | Minimální jistota přítomnosti objektu (YOLO) |
+| `CLASS_THRESHOLD` | 0.20 | Minimální třídní jistota (YOLO) |
+| `NMS_IOU_THRESHOLD` | 0.45 | Práh překryvu pro NMS |
+| `MAX_DETECTIONS` | 20 | Maximální počet výsledků |
+
+---
+
 ## 7. Zachytávání snímků a galerie
 
 ### CaptureManager
 
 **Soubor:** `CaptureManager.kt`  
-Spravuje ukládání a mazání fotografií tváří na disk.
+Spravuje ukládání a mazání fotografií na disk.
 
 Fotografie se ukládají do: `<external_files_dir>/face_captures/`
 
 ```
+fun saveScreenCapture(bitmap: Bitmap): String?
+```
+Uloží bitmap celé obrazovky (kamera + překryvné vrstvy) jako JPEG (kvalita 95 %). Název souboru: `capture_<timestamp>.jpg`. Vrátí absolutní cestu k souboru, nebo `null` při chybě.
+
+```
 fun saveFaceCapture(bitmap: Bitmap, name: String = ""): String?
 ```
-Uloží bitmap jako JPEG (kvalita 90 %). Název souboru obsahuje timestamp a jméno osoby. Vrátí absolutní cestu k souboru, nebo `null` při chybě.
+Uloží vyříznutou tvář jako JPEG (kvalita 90 %). Název souboru obsahuje timestamp a jméno osoby. Vrátí absolutní cestu k souboru, nebo `null` při chybě.
 
 ```
 fun getAllCaptures(): List<File>
@@ -423,6 +473,22 @@ Smaže všechny zachycené fotografie.
 
 ---
 
+### captureScreen()
+
+**Soubor:** `MainActivity.kt`
+
+Zachytí přesně to, co uživatel vidí – obraz z kamery se všemi aktivními překryvnými vrstvami.
+
+Postup:
+1. Zkontroluje, zda má `previewView` nenulové rozměry.
+2. Načte bitmap z `previewView.bitmap` (vyžaduje `ImplementationMode.COMPATIBLE` / TextureView).
+3. Vytvoří výsledný bitmap v rozměrech `viewW × viewH`.
+4. Nakreslí preview obsah přes celý canvas (škálování eliminuje nesoulad rozměrů bitmap/view).
+5. Postupně nakreslí `faceOverlay`, `objectDetectionOverlay` a `banknoteOverlay` přes canvas – překryvy jsou v souřadnicích View, takže nepotřebují žádné škálování.
+6. Uloží přes `captureManager.saveScreenCapture()` a otevře galerii.
+
+---
+
 ### GalleryActivity
 
 **Soubor:** `GalleryActivity.kt`  
@@ -435,20 +501,28 @@ Aktivita zobrazující mřížku (GridView) zachycených fotografií. Při návr
 **Soubor:** `GalleryAdapter.kt`  
 `BaseAdapter` pro `GridView` v galerii.
 
+Obsahuje `LruCache<String, Bitmap>` pro cachování náhledů (velikost = `maxMemory / 8` KB). Cache klíč zahrnuje `lastModified()` souboru, takže upravené soubory se automaticky překreslí.
+
 ```
 fun updateData(newCaptures: List<File>)
 ```
 Aktualizuje seznam fotografií a překreslí GridView.
 
 **Kliknutí** → otevře `PhotoDetailActivity` s cestou k souboru.  
-**Dlouhý stisk** → smaže fotografii ze seznamu i z disku.
+**Dlouhý stisk** → smaže fotografii ze seznamu, disku i cache.
+
+Náhledy jsou dekódovány pomocí `BitmapFactory.Options.inSampleSize` (metoda `decodeThumbnail()`), aby nedocházelo k načítání plného rozlišení do paměti.
 
 ---
 
 ### PhotoDetailActivity
 
 **Soubor:** `PhotoDetailActivity.kt`  
-Zobrazuje jednotlivou fotografii v plné velikosti. Cestu k souboru přijímá přes Intent extra `"photo_path"`.
+Zobrazuje jednotlivou fotografii. Cestu k souboru přijímá přes Intent extra `"photo_path"`.
+
+- Bitmap je dekódován metodou `decodeSampled()` s max. rozlišením 1920×1080 pomocí `inSampleSize`, aby nedocházelo k OOM chybám.
+- Tlačítko **Smazat fotografii** zobrazí potvrzovací dialog (`AlertDialog`).
+- Pokud `File.delete()` selže, zobrazí se Toast "Smazání selhalo" a aktivita zůstane otevřená.
 
 ---
 
@@ -487,26 +561,28 @@ Horizontální `RecyclerView` ve spodní části obrazovky. Každá položka se 
 
 ### Položky menu
 
-| Položka | Ikona | Funkce |
-|---------|-------|--------|
-| `SETTINGS` | ozubené kolečko | Otevře `SettingsActivity` |
-| `CAMERA_SWITCH` | přepnutí kamery | Přepne přední/zadní kameru (`toggleCamera()`) |
-| `SMILE` | úsměv | Přepne detekci úsměvu (zapíše do SharedPreferences + aktualizuje overlay) |
-| `EYES` | oči | Přepne detekci stavu očí |
-| `FACE` | obličej | Zapne/vypne celou detekci tváří |
-| `LANDMARKS` | body | Zapne/vypne zobrazení landmarků |
-| `CAPTURE` | fotoaparát | Zachytí všechny viditelné tváře, zeptá se na jména nepojmenovaných, uloží do galerie |
-| `GALLERY` | galerie | Otevře `GalleryActivity` |
-| `YOLO` | bankovka | Zapne/vypne YOLO detekci objektů |
+| Položka (`MenuItemType`) | Label | Funkce |
+|--------------------------|-------|--------|
+| `SETTINGS` | Settings | Otevře `SettingsActivity` |
+| `CAMERA_SWITCH` | Camera | Přepne přední/zadní kameru (`toggleCamera()`) |
+| `SMILE` | Smile | Přepne detekci úsměvu (zapíše do SharedPreferences + aktualizuje overlay) |
+| `EYES` | Eyes | Přepne detekci stavu očí |
+| `FACE` | Face | Zapne/vypne celou detekci tváří |
+| `LANDMARKS` | Landmarks | Zapne/vypne zobrazení landmarků |
+| `CAPTURE` | Capture | Zachytí obrazovku (kamera + všechny překryvy) a otevře galerii |
+| `GALLERY` | Gallery | Otevře `GalleryActivity` |
+| `OBJECT_DETECTION` | Objects | Zapne/vypne YOLO/COCO detekci obecných objektů |
+| `BANKNOTE` | Banknote | Zapne/vypne detekci bankovek (`banknote_detector.tflite`) |
 
 **Aktivní položky** (přepínače) mají modré/cyan pozadí (`btn_circle_active`), neaktivní mají průhledné skleněné pozadí (`btn_circle_glass`).
 
 ### CAPTURE flow
 
-1. Zkontroluje, zda existuje snímek a zda jsou detekovány tváře.
-2. Pro již pojmenované tváře použije uložená jména.
-3. Pro nepojmenované tváře zobrazí sekvenční dialogy (jedna tvář po druhé).
-4. Po zadání všech jmen zavolá `captureAllFaces()` a otevře galerii.
+1. Zavolá `captureScreen()`.
+2. `captureScreen()` zkontroluje připravenost kamery.
+3. Složí bitmap z preview + všech aktivních překryvů (viz sekce 7).
+4. Uloží přes `CaptureManager.saveScreenCapture()`.
+5. Po úspěchu otevře `GalleryActivity`.
 
 ---
 
@@ -591,14 +667,27 @@ Data class reprezentující jeden uložený záznam tváře.
 
 ---
 
-### BanknoteDetection
+### ObjectDetection
 
-**Soubor:** `BanknoteDetector.kt`  
-Data class pro jeden detekovaný objekt.
+**Soubor:** `ObjectDetector.kt`  
+Data class pro jeden detekovaný obecný objekt (YOLO/COCO).
 
 | Pole | Typ | Popis |
 |------|-----|-------|
 | `label` | `String` | Název třídy (např. `"person"`, `"car"`) |
+| `confidence` | `Float` | Jistota detekce 0–1 |
+| `boundingBox` | `RectF` | Normalizovaný bounding box `[0,1]` (left, top, right, bottom) |
+
+---
+
+### BanknoteDetection
+
+**Soubor:** `BanknoteDetector.kt`  
+Data class pro jeden detekovaný objekt z banknote modelu.
+
+| Pole | Typ | Popis |
+|------|-----|-------|
+| `label` | `String` | Název třídy – dočasně `"Class_X"` dokud není vytvořen `banknote_labels.txt` |
 | `confidence` | `Float` | Jistota detekce 0–1 |
 | `boundingBox` | `RectF` | Normalizovaný bounding box `[0,1]` (left, top, right, bottom) |
 
@@ -625,15 +714,17 @@ Jednoduchá data class pro přenos identifikované tváře.
 | `FaceIdentificationManager.kt` | Identifikace | Databáze tváří, rozpoznávání, CRUD |
 | `FaceDescriptor.kt` | Identifikace | Výpočet a porovnávání geometrických deskriptorů |
 | `FaceOverlay.kt` | UI / Overlay | Kreslení rámečků, landmarků, jmen přes náhled kamery |
-| `BanknoteDetector.kt` | Detekce objektů | YOLO/SSD TFLite wrapper |
-| `BanknoteOverlay.kt` | UI / Overlay | Kreslení YOLO výsledků přes náhled kamery |
+| `ObjectDetector.kt` | Detekce objektů | YOLO/COCO TFLite wrapper pro obecné objekty |
+| `ObjectDetectionOverlay.kt` | UI / Overlay | Kreslení YOLO/COCO výsledků (oranžová) |
+| `BanknoteDetector.kt` | Detekce bankovek | TFLite wrapper pro `banknote_detector.tflite` |
+| `BanknoteOverlay.kt` | UI / Overlay | Kreslení výsledků detekce bankovek (zelená) |
 | `CaptureManager.kt` | Galerie | Ukládání a správa zachycených fotografií |
 | `GalleryActivity.kt` | Galerie | Mřížkový přehled fotografií |
-| `GalleryAdapter.kt` | Galerie | Adapter pro GridView v galerii |
-| `PhotoDetailActivity.kt` | Galerie | Zobrazení fotografie v plné velikosti |
+| `GalleryAdapter.kt` | Galerie | Adapter pro GridView s LruCache cachováním náhledů |
+| `PhotoDetailActivity.kt` | Galerie | Zobrazení fotografie v plné velikosti s potvrzením mazání |
 | `SettingsActivity.kt` | Nastavení | Konfigurace přepínačů a smazání dat |
 | `NV21ToBitmap.kt` | Utility | Konverze snímků kamery na Bitmap |
 | `DebugLogger.kt` | Utility | In-app debug logger s UI výstupem |
 | `IdentifiedFace.kt` | Model | Data class pro identifikovanou tvář |
 
-> **Poznámka:** `SavedFaceData` a `BanknoteDetection` nejsou samostatné soubory — jsou definovány na začátku `FaceIdentificationManager.kt`, resp. `BanknoteDetector.kt`.
+> **Poznámka:** `SavedFaceData` a `ObjectDetection` / `BanknoteDetection` nejsou samostatné soubory — jsou definovány na začátku `FaceIdentificationManager.kt`, resp. `ObjectDetector.kt` a `BanknoteDetector.kt`.

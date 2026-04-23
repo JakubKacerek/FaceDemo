@@ -68,7 +68,7 @@ dependencies {
     // Image processing
     implementation("androidx.graphics:graphics-core:1.0.0-alpha03")
 
-    // TensorFlow Lite – banknote detection (float32 model)
+    // TensorFlow Lite – object detection and banknote detection
     // LiteRT is the new name for TFLite on Android (avoids namespace conflict on compileSdk 36)
     implementation("com.google.ai.edge.litert:litert:1.0.1") {
         exclude(group = "com.google.ai.edge.litert", module = "litert-api")

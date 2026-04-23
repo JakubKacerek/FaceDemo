@@ -5,12 +5,12 @@ import android.graphics.*
 import android.util.AttributeSet
 import android.view.View
 
-class BanknoteOverlay @JvmOverloads constructor(
+class ObjectDetectionOverlay @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
 ) : View(context, attrs) {
 
-    var detections: List<BanknoteDetection> = emptyList()
+    var detections: List<ObjectDetection> = emptyList()
         set(value) {
             field = value
             invalidate()
@@ -22,7 +22,7 @@ class BanknoteOverlay @JvmOverloads constructor(
     var offsetY = 0f
 
     private val boxPaint = Paint().apply {
-        color = Color.parseColor("#4CAF50")
+        color = Color.parseColor("#FF9800")
         style = Paint.Style.STROKE
         strokeWidth = 6f
         isAntiAlias = true
@@ -57,15 +57,18 @@ class BanknoteOverlay @JvmOverloads constructor(
             val bottom = offsetY + box.bottom * imageH
 
             if (isFrontCamera) {
-                val tmp = left; left = width - right; right = width - tmp
+                val tmp = left
+                left  = width - right
+                right = width - tmp
             }
 
             val rect = RectF(left, top, right, bottom)
             canvas.drawRoundRect(rect, 12f, 12f, boxPaint)
 
-            val label      = "${det.label}  ${(det.confidence * 100).toInt()}%"
-            val textW      = textPaint.measureText(label)
-            val textH      = textPaint.textSize
+            val label  = "${det.label}  ${(det.confidence * 100).toInt()}%"
+            val textW  = textPaint.measureText(label)
+            val textH  = textPaint.textSize
+
             val labelLeft   = left
             val labelTop    = (top - textH - 12f).coerceAtLeast(0f)
             val labelRight  = (left + textW + 16f).coerceAtMost(width.toFloat())

@@ -74,30 +74,6 @@ class FaceOverlay @JvmOverloads constructor(
         FaceLandmark.RIGHT_EAR     to "REar"
     )
 
-    // Optional image dimensions (raw media image) and rotation used for accurate mapping
-    // (rotation-aware mapping handled in MainActivity; overlay expects bounds in image-space)
-
-    // Optional image dimensions (in image-space) - used for debugging drawing of image area
-    var imageWidth = 0f
-    var imageHeight = 0f
-
-    // Zapnout pro zobrazení hran obrazu a středových čar
-    var debugDrawImageBounds = false
-
-    private val debugPaint = Paint().apply {
-        color = Color.RED
-        style = Paint.Style.STROKE
-        strokeWidth = 3f
-        isAntiAlias = true
-    }
-
-    private val debugLinePaint = Paint().apply {
-        color = Color.MAGENTA
-        style = Paint.Style.STROKE
-        strokeWidth = 2f
-        isAntiAlias = true
-    }
-
     // Pomocná funkce: převede bounding box (image-space) na RectF v view-space
     private fun mapBoxToView(bounds: Rect): RectF {
         var left = bounds.left * scale
@@ -322,28 +298,6 @@ class FaceOverlay @JvmOverloads constructor(
             }
         }
 
-        // Draw image bounds for debugging if dimensions are available
-        if (debugDrawImageBounds && imageWidth > 0f && imageHeight > 0f) {
-            val left = offsetX
-            val top = offsetY
-            val right = offsetX + imageWidth * scale
-            val bottom = offsetY + imageHeight * scale
-            val imageRect = RectF(left, top, right, bottom)
-
-            // If mirrored, flip the rect horizontally for display
-            val drawRect = if (isFrontCamera) {
-                RectF(width - imageRect.right, imageRect.top, width - imageRect.left, imageRect.bottom)
-            } else {
-                imageRect
-            }
-
-            canvas.drawRect(drawRect, debugPaint)
-            // crosshair in center
-            val cx = drawRect.left + drawRect.width() / 2f
-            val cy = drawRect.top + drawRect.height() / 2f
-            canvas.drawLine(cx - 20f, cy, cx + 20f, cy, debugLinePaint)
-            canvas.drawLine(cx, cy - 20f, cx, cy + 20f, debugLinePaint)
-        }
     }
 
 

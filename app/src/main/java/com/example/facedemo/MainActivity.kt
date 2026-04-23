@@ -33,6 +33,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var previewView: PreviewView
     lateinit var faceOverlay: FaceOverlay
+    private lateinit var objectDetectionOverlay: ObjectDetectionOverlay
     private lateinit var banknoteOverlay: BanknoteOverlay
 
     private val cameraExecutor = Executors.newSingleThreadExecutor()
@@ -44,22 +45,28 @@ class MainActivity : AppCompatActivity() {
     private var faceDetectionEnabled = true
     private var menuAdapter: MenuAdapter? = null
 
-    // YOLO object detection
+    private var objectDetector: ObjectDetector? = null
+    private var objectDetectionEnabled = false
+    private var lastObjectDetectionMs = 0L
+    private val objectDetectionIntervalMs = 120L
+
     private var banknoteDetector: BanknoteDetector? = null
     private var banknoteDetectionEnabled = false
     private var lastBanknoteDetectionMs = 0L
-    private val banknoteDetectionIntervalMs = 120L
+    private val banknoteDetectionIntervalMs = 200L
 
     private val detectionPrefsName = "detection_settings"
     private val keyFaceDetection = "face_detection_enabled"
-    private val keyYoloDetection = "yolo_detection_enabled"
+    private val keyObjectDetection = "yolo_detection_enabled"
+    private val keyBanknoteDetection = "banknote_detection_enabled"
     private val keyDebugMode = "debug_mode_enabled"
 
     private lateinit var debugPanel: ScrollView
     private lateinit var txtDebugLogs: TextView
     private var debugModeEnabled = false
     private var lastDebugFaceLogMs = 0L
-    private var lastDebugYoloLogMs = 0L
+    private var lastDebugObjectLogMs = 0L
+    private var lastDebugBanknoteLogMs = 0L
     private val debugLogIntervalMs = 3000L
 
     // Perf tuning for analyzer
@@ -89,29 +96,27 @@ class MainActivity : AppCompatActivity() {
 
         previewView = findViewById(R.id.previewView)
         faceOverlay = findViewById(R.id.faceOverlay)
+        objectDetectionOverlay = findViewById(R.id.objectDetectionOverlay)
         banknoteOverlay = findViewById(R.id.banknoteOverlay)
         debugPanel = findViewById(R.id.debugPanel)
         txtDebugLogs = findViewById(R.id.txtDebugLogs)
 
-        // Keep full frame visible in portrait; no geometric distortion.
         previewView.scaleType = PreviewView.ScaleType.FIT_CENTER
 
-        // Načíst uložená jména při startu
         faceOverlay.loadNames(this)
         val detectionPrefs = getSharedPreferences(detectionPrefsName, MODE_PRIVATE)
         faceDetectionEnabled = detectionPrefs.getBoolean(keyFaceDetection, true)
-        banknoteDetectionEnabled = detectionPrefs.getBoolean(keyYoloDetection, false)
+        objectDetectionEnabled = detectionPrefs.getBoolean(keyObjectDetection, false)
+        banknoteDetectionEnabled = detectionPrefs.getBoolean(keyBanknoteDetection, false)
         debugModeEnabled = detectionPrefs.getBoolean(keyDebugMode, false)
         DebugLogger.setEnabled(debugModeEnabled)
         applyDebugUiState()
 
-        if (banknoteDetectionEnabled) {
-            ensureYoloDetectorReady(showToastOnError = true)
-        }
+        if (objectDetectionEnabled) ensureObjectDetectorReady(showToastOnError = true)
+        if (banknoteDetectionEnabled) ensureBanknoteDetectorReady(showToastOnError = true)
 
         DebugLogger.log("MainActivity", "onCreate()")
 
-        // Nastavení click listeneru pro tváře
         faceOverlay.onFaceClick = { faceIndex, face ->
             showNameInputDialog(face, faceIndex)
         }
@@ -126,18 +131,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestPermission() {
-
         val launcher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
             if (granted) startCamera()
         }
 
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             startCamera()
         } else {
             launcher.launch(Manifest.permission.CAMERA)
@@ -145,32 +145,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startCamera() {
-
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         val targetRotation = Surface.ROTATION_0
 
-        previewView.implementationMode =
-            PreviewView.ImplementationMode.COMPATIBLE
+        previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
 
         cameraProviderFuture.addListener({
-
             val cameraProvider = cameraProviderFuture.get()
 
             val preview = Preview.Builder()
                 .setTargetRotation(targetRotation)
                 .setTargetResolution(Size(1280, 720))
                 .build()
-                .also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
+                .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
             @Suppress("DEPRECATION")
             val imageAnalysis = ImageAnalysis.Builder()
                 .setTargetResolution(Size(1280, 720))
                 .setTargetRotation(targetRotation)
-                .setBackpressureStrategy(
-                    ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-                )
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
 
             val detector = FaceDetection.getClient(
@@ -183,7 +176,6 @@ class MainActivity : AppCompatActivity() {
             )
 
             imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
-
                 val mediaImage = imageProxy.image
                 if (mediaImage == null) {
                     imageProxy.close()
@@ -195,40 +187,37 @@ class MainActivity : AppCompatActivity() {
 
                 analysisFrameCount++
                 if (analysisFrameCount % captureBitmapEveryNFrames == 0) {
-                    // Keep captured frame in the same rotation-space as ML Kit bounding boxes.
                     val rawBitmap = NV21ToBitmap.convertNV21(mediaImage)
                     val orientedBitmap = NV21ToBitmap.rotate(rawBitmap, rotation)
                     faceOverlay.latestFrame?.takeIf { !it.isRecycled }?.recycle()
                     faceOverlay.latestFrame = orientedBitmap
                 }
 
-                // Run ML Kit on MediaImage with proper rotation metadata.
                 val image = InputImage.fromMediaImage(mediaImage, rotation)
 
                 if (!faceDetectionEnabled) {
                     faceOverlay.faces = emptyList()
                     faceOverlay.invalidate()
-                    runYoloDetectionIfNeeded()
+                    runObjectDetectionIfNeeded()
+                    runBanknoteDetectionIfNeeded()
                     imageProxy.close()
                     return@setAnalyzer
                 }
 
                 detector.process(image)
                     .addOnSuccessListener { faces ->
-
                         val now = System.currentTimeMillis()
-                        if (debugModeEnabled && faceDetectionEnabled && now - lastDebugFaceLogMs >= debugLogIntervalMs) {
-                            DebugLogger.log("Face", "Detected faces: ${faces.size}")
+                        if (debugModeEnabled && now - lastDebugFaceLogMs >= debugLogIntervalMs) {
+                            DebugLogger.log("Face", "Detected: ${faces.size}")
                             lastDebugFaceLogMs = now
                         }
 
-                        // Automaticky rozpoznej tváře podle uložených dat
                         for (face in faces) {
                             val trackingId = face.trackingId
                             var resolvedFaceId: String? = null
                             var resolvedName: String? = null
 
-                            // 1) Lightweight same-session lookup by trackingId (cheap with cache)
+                            // 1) Quick lookup by trackingId
                             if (trackingId != null) {
                                 val cached = faceManager.findFaceByTrackingId(trackingId)
                                 if (cached != null) {
@@ -237,15 +226,13 @@ class MainActivity : AppCompatActivity() {
                                 }
                             }
 
-                            // 2) Descriptor recognition only periodically per trackingId
+                            // 2) Descriptor recognition (rate-limited per trackingId)
                             if (resolvedName == null) {
                                 val canRecognize = trackingId == null ||
                                     (now - (lastRecognizeMsByTrackingId[trackingId] ?: 0L) >= recognizeIntervalMs)
 
                                 if (canRecognize) {
-                                    if (trackingId != null) {
-                                        lastRecognizeMsByTrackingId[trackingId] = now
-                                    }
+                                    if (trackingId != null) lastRecognizeMsByTrackingId[trackingId] = now
                                     val descriptor = FaceDescriptor.compute(face)
                                     if (descriptor != null) {
                                         val match = faceManager.recognizeByDescriptor(descriptor)
@@ -254,7 +241,6 @@ class MainActivity : AppCompatActivity() {
                                             resolvedFaceId = savedFace.faceId
                                             resolvedName = savedFace.name
 
-                                            // Descriptor refinement only every N ms per faceId
                                             val lastUpd = lastDescriptorUpdateMsByFaceId[savedFace.faceId] ?: 0L
                                             if (now - lastUpd >= descriptorUpdateIntervalMs) {
                                                 faceManager.updateDescriptor(savedFace.faceId, descriptor)
@@ -277,13 +263,10 @@ class MainActivity : AppCompatActivity() {
 
                         faceOverlay.faces = faces
                         faceOverlay.invalidate()
-
-                        // YOLO object detection runs independently from face detection state.
-                        runYoloDetectionIfNeeded()
+                        runObjectDetectionIfNeeded()
+                        runBanknoteDetectionIfNeeded()
                     }
-                    .addOnCompleteListener {
-                        imageProxy.close()
-                    }
+                    .addOnCompleteListener { imageProxy.close() }
             }
 
             val cameraSelector = CameraSelector.Builder()
@@ -291,13 +274,7 @@ class MainActivity : AppCompatActivity() {
                 .build()
 
             cameraProvider.unbindAll()
-
-            cameraProvider.bindToLifecycle(
-                this,
-                cameraSelector,
-                preview,
-                imageAnalysis
-            )
+            cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis)
 
         }, ContextCompat.getMainExecutor(this))
     }
@@ -312,15 +289,11 @@ class MainActivity : AppCompatActivity() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
-            val desiredSelector = CameraSelector.Builder()
-                .requireLensFacing(desiredLensFacing)
-                .build()
+            val desiredSelector = CameraSelector.Builder().requireLensFacing(desiredLensFacing).build()
 
             val hasDesiredCamera = try {
                 cameraProvider.hasCamera(desiredSelector)
-            } catch (_: Exception) {
-                false
-            }
+            } catch (_: Exception) { false }
 
             if (!hasDesiredCamera) {
                 Toast.makeText(this, "Tato kamera neni dostupna.", Toast.LENGTH_SHORT).show()
@@ -341,6 +314,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         cameraExecutor.shutdown()
+        objectDetector?.close()
+        objectDetector = null
         banknoteDetector?.close()
         banknoteDetector = null
     }
@@ -352,12 +327,11 @@ class MainActivity : AppCompatActivity() {
         if (descriptor != null) {
             val existing = if (trackingId != null) faceManager.findFaceByTrackingId(trackingId) else null
             if (existing != null) {
-                val updated = existing.copy(
+                faceManager.saveFace(existing.copy(
                     name = name,
                     descriptorCsv = FaceDescriptor.serialize(descriptor),
                     descriptorSamples = existing.descriptorSamples + 1
-                )
-                faceManager.saveFace(updated)
+                ))
                 if (trackingId != null) faceOverlay.setIdentifiedFace(trackingId, name)
             } else {
                 faceManager.saveFaceWithDescriptor(name, descriptor, trackingId)
@@ -371,17 +345,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showNameInputDialog(face: Face, faceIndex: Int) {
-        val editText = EditText(this)
-        editText.hint = "Zadejte jméno osoby"
+        val editText = EditText(this).apply { hint = "Zadejte jméno osoby" }
 
         AlertDialog.Builder(this)
             .setTitle("Identifikace tváře")
             .setView(editText)
             .setPositiveButton("Potvrdit") { _, _ ->
                 val name = editText.text.toString().trim()
-                if (name.isNotEmpty()) {
-                    persistFaceName(face, faceIndex, name)
-                }
+                if (name.isNotEmpty()) persistFaceName(face, faceIndex, name)
             }
             .setNegativeButton("Zrušit", null)
             .show()
@@ -389,17 +360,16 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Po navratu ze Settings chceme cist jen aktualni ulozena data.
         faceManager = FaceIdentificationManager(this)
         faceManager.clearInMemoryCache()
         lastRecognizeMsByTrackingId.clear()
         lastDescriptorUpdateMsByFaceId.clear()
         faceOverlay.refreshAllData(this)
 
-        // Refresh toggles from Settings
         val detectionPrefs = getSharedPreferences(detectionPrefsName, MODE_PRIVATE)
         faceDetectionEnabled = detectionPrefs.getBoolean(keyFaceDetection, true)
-        banknoteDetectionEnabled = detectionPrefs.getBoolean(keyYoloDetection, false)
+        objectDetectionEnabled = detectionPrefs.getBoolean(keyObjectDetection, false)
+        banknoteDetectionEnabled = detectionPrefs.getBoolean(keyBanknoteDetection, false)
         debugModeEnabled = detectionPrefs.getBoolean(keyDebugMode, false)
         DebugLogger.setEnabled(debugModeEnabled)
         applyDebugUiState()
@@ -414,74 +384,182 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        if (debugModeEnabled) {
-            DebugLogger.registerListener(debugListener)
-        }
+        if (debugModeEnabled) DebugLogger.registerListener(debugListener)
     }
 
-    /**
-     * Convert MediaImage to Bitmap using RenderScript or direct approach
-     */
-    private fun mediaImageToBitmap(mediaImage: android.media.Image): Bitmap {
-        val bitmap = NV21ToBitmap.convertNV21(mediaImage)
-        return NV21ToBitmap.rotate(bitmap, 90)
-    }
-
-    private fun ensureYoloDetectorReady(showToastOnError: Boolean = false): Boolean {
-        if (!banknoteDetectionEnabled) return false
-        if (banknoteDetector != null) return true
+    private fun ensureObjectDetectorReady(showToastOnError: Boolean = false): Boolean {
+        if (!objectDetectionEnabled) return false
+        if (objectDetector != null) return true
 
         return try {
-            banknoteDetector = BanknoteDetector(this)
-            DebugLogger.log("YOLO", "Model initialized")
+            objectDetector = ObjectDetector(this)
+            DebugLogger.log("ObjectDetector", "Model initialized")
             true
         } catch (e: Exception) {
-            banknoteDetectionEnabled = false
+            objectDetectionEnabled = false
             getSharedPreferences(detectionPrefsName, MODE_PRIVATE).edit {
-                putBoolean(keyYoloDetection, false)
+                putBoolean(keyObjectDetection, false)
             }
             runOnUiThread {
-                banknoteOverlay.detections = emptyList()
-                DebugLogger.log("YOLO", "Model init failed: ${e.message}")
+                objectDetectionOverlay.detections = emptyList()
+                DebugLogger.log("ObjectDetector", "Model init failed: ${e.message}")
                 if (showToastOnError) {
-                    Toast.makeText(
-                        this,
-                        "Nelze nacist YOLO model: ${e.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(this, "Nelze nacist YOLO model: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
             false
         }
     }
 
-    private fun runYoloDetectionIfNeeded() {
+    private fun runObjectDetectionIfNeeded() {
+        if (!objectDetectionEnabled) {
+            objectDetectionOverlay.detections = emptyList()
+            return
+        }
+        if (!ensureObjectDetectorReady()) return
+
+        val now = System.currentTimeMillis()
+        val frame = faceOverlay.latestFrame
+        if (frame == null || frame.isRecycled || now - lastObjectDetectionMs < objectDetectionIntervalMs) return
+
+        val frameForDetection = try {
+            frame.copy(Bitmap.Config.ARGB_8888, false)
+        } catch (_: Exception) { null } ?: return
+
+        lastObjectDetectionMs = now
+        val detector = objectDetector ?: run { frameForDetection.recycle(); return }
+        if (detector.isBusy) { frameForDetection.recycle(); return }
+
+        cameraExecutor.execute {
+            val results = try {
+                detector.detect(frameForDetection)
+            } finally {
+                frameForDetection.recycle()
+            }
+            runOnUiThread {
+                objectDetectionOverlay.detections = results
+                val nowUi = System.currentTimeMillis()
+                if (debugModeEnabled && nowUi - lastDebugObjectLogMs >= debugLogIntervalMs) {
+                    val sample = results.take(3).joinToString { "${it.label}:${"%.2f".format(it.confidence)}" }
+                    DebugLogger.log("ObjectDetector", "Detections=${results.size}${if (sample.isNotBlank()) " | $sample" else ""}")
+                    lastDebugObjectLogMs = nowUi
+                }
+            }
+        }
+    }
+
+    private fun updateOverlayTransforms(mediaImage: android.media.Image, rotation: Int) {
+        var imageW = mediaImage.width.toFloat()
+        var imageH = mediaImage.height.toFloat()
+        if (rotation == 90 || rotation == 270) {
+            val tmp = imageW; imageW = imageH; imageH = tmp
+        }
+
+        val viewWidth  = previewView.width.toFloat().takeIf  { it > 0f } ?: return
+        val viewHeight = previewView.height.toFloat().takeIf { it > 0f } ?: return
+
+        val scale   = min(viewWidth / imageW, viewHeight / imageH)
+        val offsetX = (viewWidth  - imageW * scale) / 2f
+        val offsetY = (viewHeight - imageH * scale) / 2f
+
+        faceOverlay.scale = scale
+        faceOverlay.offsetX = offsetX
+        faceOverlay.offsetY = offsetY
+        faceOverlay.isFrontCamera = (lensFacing == CameraSelector.LENS_FACING_FRONT)
+
+        objectDetectionOverlay.scale = scale
+        objectDetectionOverlay.offsetX = offsetX
+        objectDetectionOverlay.offsetY = offsetY
+        objectDetectionOverlay.isFrontCamera = (lensFacing == CameraSelector.LENS_FACING_FRONT)
+
+        banknoteOverlay.scale = scale
+        banknoteOverlay.offsetX = offsetX
+        banknoteOverlay.offsetY = offsetY
+        banknoteOverlay.isFrontCamera = (lensFacing == CameraSelector.LENS_FACING_FRONT)
+    }
+
+    private fun captureScreen() {
+        val viewW = previewView.width
+        val viewH = previewView.height
+        if (viewW == 0 || viewH == 0) {
+            Toast.makeText(this, "Kamera zatím není připravena", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val previewBitmap = previewView.bitmap ?: run {
+            Toast.makeText(this, "Kamera zatím není připravena", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Result is always in view coordinate space so overlays align 1:1
+        val result = Bitmap.createBitmap(viewW, viewH, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(result)
+
+        // Draw preview content scaled to view size (handles any dimension mismatch)
+        val src = android.graphics.Rect(0, 0, previewBitmap.width, previewBitmap.height)
+        val dst = android.graphics.Rect(0, 0, viewW, viewH)
+        canvas.drawBitmap(previewBitmap, src, dst, null)
+        previewBitmap.recycle()
+
+        // Overlays are in view coordinate space — draw directly, no scaling needed
+        faceOverlay.draw(canvas)
+        objectDetectionOverlay.draw(canvas)
+        banknoteOverlay.draw(canvas)
+
+        val path = captureManager.saveScreenCapture(result)
+        result.recycle()
+
+        if (path != null) {
+            DebugLogger.log("Capture", "Screen saved: $path")
+            Toast.makeText(this, "Uloženo!", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, GalleryActivity::class.java))
+        } else {
+            Toast.makeText(this, "Chyba při ukládání", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun ensureBanknoteDetectorReady(showToastOnError: Boolean = false): Boolean {
+        if (!banknoteDetectionEnabled) return false
+        if (banknoteDetector != null) return true
+
+        return try {
+            banknoteDetector = BanknoteDetector(this)
+            DebugLogger.log("BanknoteDetector", "Model initialized")
+            true
+        } catch (e: Exception) {
+            banknoteDetectionEnabled = false
+            getSharedPreferences(detectionPrefsName, MODE_PRIVATE).edit {
+                putBoolean(keyBanknoteDetection, false)
+            }
+            runOnUiThread {
+                banknoteOverlay.detections = emptyList()
+                DebugLogger.log("BanknoteDetector", "Init failed: ${e.message}")
+                if (showToastOnError) {
+                    Toast.makeText(this, "Nelze nacist banknote model: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            false
+        }
+    }
+
+    private fun runBanknoteDetectionIfNeeded() {
         if (!banknoteDetectionEnabled) {
             banknoteOverlay.detections = emptyList()
             return
         }
-        if (!ensureYoloDetectorReady()) return
+        if (!ensureBanknoteDetectorReady()) return
 
         val now = System.currentTimeMillis()
         val frame = faceOverlay.latestFrame
         if (frame == null || frame.isRecycled || now - lastBanknoteDetectionMs < banknoteDetectionIntervalMs) return
 
-        // Snapshot frame to avoid races with analyzer recycling/replacing latestFrame.
         val frameForDetection = try {
             frame.copy(Bitmap.Config.ARGB_8888, false)
-        } catch (_: Exception) {
-            null
-        } ?: return
+        } catch (_: Exception) { null } ?: return
 
         lastBanknoteDetectionMs = now
-        val detector = banknoteDetector ?: run {
-            frameForDetection.recycle()
-            return
-        }
-        if (detector.isBusy) {
-            frameForDetection.recycle()
-            return
-        }
+        val detector = banknoteDetector ?: run { frameForDetection.recycle(); return }
+        if (detector.isBusy) { frameForDetection.recycle(); return }
 
         cameraExecutor.execute {
             val results = try {
@@ -492,43 +570,13 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 banknoteOverlay.detections = results
                 val nowUi = System.currentTimeMillis()
-                if (debugModeEnabled && banknoteDetectionEnabled && nowUi - lastDebugYoloLogMs >= debugLogIntervalMs) {
+                if (debugModeEnabled && nowUi - lastDebugBanknoteLogMs >= debugLogIntervalMs) {
                     val sample = results.take(3).joinToString { "${it.label}:${"%.2f".format(it.confidence)}" }
-                    DebugLogger.log("YOLO", "Detections=${results.size}${if (sample.isNotBlank()) " | $sample" else ""}")
-                    lastDebugYoloLogMs = nowUi
+                    DebugLogger.log("BanknoteDetector", "Detections=${results.size}${if (sample.isNotBlank()) " | $sample" else ""}")
+                    lastDebugBanknoteLogMs = nowUi
                 }
             }
         }
-    }
-
-    private fun updateOverlayTransforms(mediaImage: android.media.Image, rotation: Int) {
-        var imageW = mediaImage.width.toFloat()
-        var imageH = mediaImage.height.toFloat()
-        if (rotation == 90 || rotation == 270) {
-            val tmp = imageW
-            imageW = imageH
-            imageH = tmp
-        }
-
-        val viewWidth = previewView.width.toFloat().takeIf { it > 0f } ?: return
-        val viewHeight = previewView.height.toFloat().takeIf { it > 0f } ?: return
-
-        val scale = min(viewWidth / imageW, viewHeight / imageH)
-        val offsetX = (viewWidth - imageW * scale) / 2f
-        val offsetY = (viewHeight - imageH * scale) / 2f
-
-        faceOverlay.scale = scale
-        faceOverlay.offsetX = offsetX
-        faceOverlay.offsetY = offsetY
-        faceOverlay.imageWidth = imageW
-        faceOverlay.imageHeight = imageH
-        faceOverlay.debugDrawImageBounds = false
-        faceOverlay.isFrontCamera = (lensFacing == CameraSelector.LENS_FACING_FRONT)
-
-        banknoteOverlay.scale = scale
-        banknoteOverlay.offsetX = offsetX
-        banknoteOverlay.offsetY = offsetY
-        banknoteOverlay.isFrontCamera = (lensFacing == CameraSelector.LENS_FACING_FRONT)
     }
 
     private fun applyDebugUiState() {
@@ -541,8 +589,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // MenuAdapter for the scrollable menu
-    inner class MenuAdapter(private val context: Context, private val faceOverlay: FaceOverlay) : RecyclerView.Adapter<MenuAdapter.ViewHolder>() {
+    inner class MenuAdapter(
+        private val context: Context,
+        private val faceOverlay: FaceOverlay
+    ) : RecyclerView.Adapter<MenuAdapter.ViewHolder>() {
 
         private val items = listOf(
             MenuItemType.SETTINGS,
@@ -553,7 +603,8 @@ class MainActivity : AppCompatActivity() {
             MenuItemType.LANDMARKS,
             MenuItemType.CAPTURE,
             MenuItemType.GALLERY,
-            MenuItemType.YOLO
+            MenuItemType.OBJECT_DETECTION,
+            MenuItemType.BANKNOTE
         )
 
         inner class ViewHolder(itemView: android.view.View) : RecyclerView.ViewHolder(itemView) {
@@ -572,21 +623,21 @@ class MainActivity : AppCompatActivity() {
             val prefs = getSharedPreferences("detection_settings", MODE_PRIVATE)
 
             val (iconRes, labelText, isActive) = when (item) {
-                MenuItemType.SETTINGS      -> Triple(R.drawable.ic_btn_settings, "Settings", false)
-                MenuItemType.CAMERA_SWITCH -> Triple(R.drawable.ic_btn_camera_switch, "Camera", false)
-                MenuItemType.SMILE         -> Triple(R.drawable.ic_btn_smile, "Smile", prefs.getBoolean("smile_detection_enabled", true))
-                MenuItemType.EYES          -> Triple(R.drawable.ic_btn_eyes, "Eyes", prefs.getBoolean("eyes_detection_enabled", true))
-                MenuItemType.FACE          -> Triple(R.drawable.ic_btn_face, "Face", faceDetectionEnabled)
-                MenuItemType.LANDMARKS     -> Triple(R.drawable.ic_btn_landmarks, "Landmarks", faceOverlay.landmarksEnabled)
-                MenuItemType.CAPTURE       -> Triple(R.drawable.ic_btn_capture, "Capture", false)
-                MenuItemType.GALLERY       -> Triple(R.drawable.ic_btn_gallery, "Gallery", false)
-                MenuItemType.YOLO          -> Triple(R.drawable.ic_btn_banknote, "YOLO", banknoteDetectionEnabled)
+                MenuItemType.SETTINGS          -> Triple(R.drawable.ic_btn_settings, "Settings", false)
+                MenuItemType.CAMERA_SWITCH     -> Triple(R.drawable.ic_btn_camera_switch, "Camera", false)
+                MenuItemType.SMILE             -> Triple(R.drawable.ic_btn_smile, "Smile", prefs.getBoolean("smile_detection_enabled", true))
+                MenuItemType.EYES              -> Triple(R.drawable.ic_btn_eyes, "Eyes", prefs.getBoolean("eyes_detection_enabled", true))
+                MenuItemType.FACE              -> Triple(R.drawable.ic_btn_face, "Face", faceDetectionEnabled)
+                MenuItemType.LANDMARKS         -> Triple(R.drawable.ic_btn_landmarks, "Landmarks", faceOverlay.landmarksEnabled)
+                MenuItemType.CAPTURE           -> Triple(R.drawable.ic_btn_capture, "Capture", false)
+                MenuItemType.GALLERY           -> Triple(R.drawable.ic_btn_gallery, "Gallery", false)
+                MenuItemType.OBJECT_DETECTION  -> Triple(R.drawable.ic_btn_banknote, "Objects", objectDetectionEnabled)
+                MenuItemType.BANKNOTE          -> Triple(R.drawable.ic_btn_banknote, "Banknote", banknoteDetectionEnabled)
             }
 
             holder.icon.setImageResource(iconRes)
             holder.label.text = labelText
 
-            // Active toggle buttons glow cyan, others are glass
             val bgRes = if (isActive) R.drawable.btn_circle_active else R.drawable.btn_circle_glass
             holder.icon.background = androidx.core.content.res.ResourcesCompat.getDrawable(resources, bgRes, null)
 
@@ -594,17 +645,15 @@ class MainActivity : AppCompatActivity() {
                 when (item) {
                     MenuItemType.SETTINGS -> {
                         DebugLogger.log("Menu", "Open settings")
-                        startActivity(android.content.Intent(this@MainActivity, SettingsActivity::class.java))
+                        startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
                     }
-                    MenuItemType.CAMERA_SWITCH -> {
-                        toggleCamera()
-                    }
+                    MenuItemType.CAMERA_SWITCH -> toggleCamera()
                     MenuItemType.SMILE -> {
                         val current = prefs.getBoolean("smile_detection_enabled", true)
                         prefs.edit { putBoolean("smile_detection_enabled", !current) }
                         faceOverlay.loadDetectionSettings(this@MainActivity)
                         notifyItemChanged(position)
-                        DebugLogger.log("Menu", "Smile detection=${if (!current) "ON" else "OFF"}")
+                        DebugLogger.log("Menu", "Smile=${if (!current) "ON" else "OFF"}")
                         Toast.makeText(this@MainActivity, "Smile Detection ${if (!current) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
                     }
                     MenuItemType.EYES -> {
@@ -612,7 +661,7 @@ class MainActivity : AppCompatActivity() {
                         prefs.edit { putBoolean("eyes_detection_enabled", !current) }
                         faceOverlay.loadDetectionSettings(this@MainActivity)
                         notifyItemChanged(position)
-                        DebugLogger.log("Menu", "Eyes detection=${if (!current) "ON" else "OFF"}")
+                        DebugLogger.log("Menu", "Eyes=${if (!current) "ON" else "OFF"}")
                         Toast.makeText(this@MainActivity, "Eyes Detection ${if (!current) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
                     }
                     MenuItemType.FACE -> {
@@ -623,7 +672,7 @@ class MainActivity : AppCompatActivity() {
                             faceOverlay.invalidate()
                         }
                         notifyItemChanged(position)
-                        DebugLogger.log("Menu", "Face detection=${if (faceDetectionEnabled) "ON" else "OFF"}")
+                        DebugLogger.log("Menu", "Face=${if (faceDetectionEnabled) "ON" else "OFF"}")
                         Toast.makeText(this@MainActivity, "Face Detection ${if (faceDetectionEnabled) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
                     }
                     MenuItemType.LANDMARKS -> {
@@ -632,74 +681,32 @@ class MainActivity : AppCompatActivity() {
                         notifyItemChanged(position)
                         Toast.makeText(this@MainActivity, "Landmarks ${if (faceOverlay.landmarksEnabled) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
                     }
-                    MenuItemType.CAPTURE -> {
-                        if (faceOverlay.latestFrame == null) {
-                            Toast.makeText(this@MainActivity, "No frame available", Toast.LENGTH_SHORT).show()
-                            return@setOnClickListener
-                        }
-                        val faces = faceOverlay.faces
-                        if (faces.isEmpty()) {
-                            Toast.makeText(this@MainActivity, "No faces detected", Toast.LENGTH_SHORT).show()
-                            return@setOnClickListener
-                        }
-
-                        // Pre-fill known names; only ask for unnamed faces
-                        val faceNames = mutableMapOf<Int, String>()
-                        for ((index, face) in faces.withIndex()) {
-                            val known = faceOverlay.getNameForFace(face, index)
-                            if (known != null) faceNames[index] = known
-                        }
-
-                        // Indices that still need a name
-                        val unnamed = faces.indices.filter { faceNames[it] == null }.toMutableList()
-                        var unnamedPos = 0
-
-                        fun doCapture() {
-                            val paths = faceOverlay.captureAllFaces(captureManager) { _ -> faceNames }
-                            if (paths.isNotEmpty()) {
-                                Toast.makeText(this@MainActivity, "Captured ${paths.size} face(s)!", Toast.LENGTH_SHORT).show()
-                                startActivity(android.content.Intent(this@MainActivity, GalleryActivity::class.java))
-                            } else {
-                                Toast.makeText(this@MainActivity, "Failed to capture faces", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-
-                        fun showNextUnnamedDialog() {
-                            if (unnamedPos >= unnamed.size) {
-                                doCapture()
-                                return
-                            }
-                            val idx = unnamed[unnamedPos]
-                            val editText = EditText(this@MainActivity).apply {
-                                hint = "Enter name for face ${idx + 1}"
-                                setText("Person_${idx + 1}")
-                            }
-                            AlertDialog.Builder(this@MainActivity)
-                                .setTitle("Name face ${idx + 1}/${faces.size}")
-                                .setView(editText)
-                                .setPositiveButton("Next") { _, _ ->
-                                    val finalName = editText.text.toString().trim().ifEmpty { "Person_${idx + 1}" }
-                                    faceNames[idx] = finalName
-                                    persistFaceName(faces[idx], idx, finalName)
-                                    unnamedPos++
-                                    showNextUnnamedDialog()
-                                }
-                                .setNegativeButton("Cancel", null)
-                                .setCancelable(false)
-                                .show()
-                        }
-
-                        showNextUnnamedDialog()
-                    }
+                    MenuItemType.CAPTURE -> captureScreen()
                     MenuItemType.GALLERY -> {
-                        startActivity(android.content.Intent(this@MainActivity, GalleryActivity::class.java))
+                        startActivity(Intent(this@MainActivity, GalleryActivity::class.java))
                     }
-                    MenuItemType.YOLO -> {
+                    MenuItemType.OBJECT_DETECTION -> {
+                        objectDetectionEnabled = !objectDetectionEnabled
+                        prefs.edit { putBoolean(keyObjectDetection, objectDetectionEnabled) }
+
+                        if (objectDetectionEnabled) {
+                            if (!ensureObjectDetectorReady(showToastOnError = true)) {
+                                notifyItemChanged(position)
+                                return@setOnClickListener
+                            }
+                        } else {
+                            objectDetectionOverlay.detections = emptyList()
+                        }
+                        notifyItemChanged(position)
+                        DebugLogger.log("Menu", "ObjectDetection=${if (objectDetectionEnabled) "ON" else "OFF"}")
+                        Toast.makeText(this@MainActivity, "Object Detection ${if (objectDetectionEnabled) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+                    }
+                    MenuItemType.BANKNOTE -> {
                         banknoteDetectionEnabled = !banknoteDetectionEnabled
-                        prefs.edit { putBoolean(keyYoloDetection, banknoteDetectionEnabled) }
+                        prefs.edit { putBoolean(keyBanknoteDetection, banknoteDetectionEnabled) }
 
                         if (banknoteDetectionEnabled) {
-                            if (!ensureYoloDetectorReady(showToastOnError = true)) {
+                            if (!ensureBanknoteDetectorReady(showToastOnError = true)) {
                                 notifyItemChanged(position)
                                 return@setOnClickListener
                             }
@@ -707,12 +714,8 @@ class MainActivity : AppCompatActivity() {
                             banknoteOverlay.detections = emptyList()
                         }
                         notifyItemChanged(position)
-                        DebugLogger.log("Menu", "YOLO=${if (banknoteDetectionEnabled) "ON" else "OFF"}")
-                        Toast.makeText(
-                            this@MainActivity,
-                            "YOLO Detection ${if (banknoteDetectionEnabled) "ON" else "OFF"}",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        DebugLogger.log("Menu", "Banknote=${if (banknoteDetectionEnabled) "ON" else "OFF"}")
+                        Toast.makeText(this@MainActivity, "Banknote Detection ${if (banknoteDetectionEnabled) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -721,9 +724,7 @@ class MainActivity : AppCompatActivity() {
         override fun getItemCount(): Int = items.size
     }
 
-    // emoce, oči, identifikace - toDo
-
     enum class MenuItemType {
-        SETTINGS, CAMERA_SWITCH, SMILE, EYES, FACE, LANDMARKS, CAPTURE, GALLERY, YOLO
+        SETTINGS, CAMERA_SWITCH, SMILE, EYES, FACE, LANDMARKS, CAPTURE, GALLERY, OBJECT_DETECTION, BANKNOTE
     }
 }

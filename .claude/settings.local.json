@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//mnt/c/Users/Malej/AndroidStudioProjects/**)",
+      "Bash(grep -rn \"mediaImageToBitmap\\\\|IdentifiedFace\\\\|FaceDescriptor\\\\.euclidean\\\\|FaceDescriptor\\\\.average\\\\|debugDrawImageBounds\\\\|debugPaint\\\\|debugLinePaint\\\\|imageWidth\\\\|imageHeight\" app/src/main/java/)",
+      "Bash(grep -rn \"BanknoteDetect\\\\|BanknoteOverlay\\\\|banknoteDetect\\\\|banknoteOverlay\" app/src/main/java/)",
+      "Bash(grep -rn \"face_names\\\\|TODO\\\\|toDo\\\\|FIXME\\\\|todo\" app/src/main/java/)"
+    ]
+  }
+}

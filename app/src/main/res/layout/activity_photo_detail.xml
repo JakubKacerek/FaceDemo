@@ -15,9 +15,22 @@
     <ImageView
         android:id="@+id/imageViewDetail"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:scaleType="fitCenter"
         android:contentDescription="Photo" />
 
-</LinearLayout>
+    <Button
+        android:id="@+id/btnDelete"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="24dp"
+        android:paddingHorizontal="32dp"
+        android:text="Smazat fotografii"
+        android:backgroundTint="#E53935"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold" />
 
+</LinearLayout>
