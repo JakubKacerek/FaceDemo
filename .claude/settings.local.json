@@ -27,7 +27,8 @@
       "Bash(not exist *)",
       "WebSearch",
       "WebFetch(domain:arxiv.org)",
-      "PowerShell($bytes = [System.IO.File]::ReadAllBytes\\(\"C:\\\\Users\\\\Malej\\\\AndroidStudioProjects\\\\FaceDemo\\\\Screenshots\\\\zdroje.txt\"\\); Write-Host \"Size: $\\($bytes.Length\\) bytes\"; [System.Text.Encoding]::UTF8.GetString\\($bytes\\))"
+      "PowerShell($bytes = [System.IO.File]::ReadAllBytes\\(\"C:\\\\Users\\\\Malej\\\\AndroidStudioProjects\\\\FaceDemo\\\\Screenshots\\\\zdroje.txt\"\\); Write-Host \"Size: $\\($bytes.Length\\) bytes\"; [System.Text.Encoding]::UTF8.GetString\\($bytes\\))",
+      "Bash(git *)"
     ]
   }
 }

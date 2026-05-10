@@ -1,6 +1,6 @@
 # FaceDemo – Dokumentace projektu
 
-> Poslední aktualizace: 2026-04-23  
+> Poslední aktualizace: 2026-05-10  
 > Jazyk: Kotlin | Platform: Android
 
 ---
@@ -401,15 +401,9 @@ Uvolní TFLite interpreter.
 
 Obaluje TFLite interpreter výhradně pro model `banknote_detector.tflite`. Podporuje stejné výstupní formáty jako `ObjectDetector` (YOLO / SSD). Při inicializaci loguje **všechny** tvary tensorů do `DebugLogger`, což umožňuje identifikovat neznámé třídy modelu.
 
-#### Jak identifikovat labely
+#### Labely bankovek
 
-1. Zapni Debug Mode v nastavení aplikace.
-2. Namiř kameru na bankovku.
-3. V debug logu hledej řádky `[BanknoteDetector] Hit: Class_X conf=0.XX`.
-4. Zjisti, kterému nominálu odpovídá index X.
-5. Vytvoř soubor `assets/banknote_labels.txt` (jeden label na řádek, index 0 jako první).
-
-Dokud soubor `banknote_labels.txt` neexistuje, detektor používá zástupné labely `Class_0`, `Class_1`, …
+Soubor `assets/banknote_labels.txt` existuje a obsahuje třídy pro EUR (5–500), USD (1–100) a GBP (5–50) plus třídu `other`. Pokud by byl soubor odstraněn, detektor automaticky použije zástupné labely `Class_0`, `Class_1`, …
 
 #### Hlavní metody
 
@@ -533,16 +527,16 @@ Aktivita pro konfiguraci aplikace. Nastavení jsou uložena v SharedPreferences 
 
 ### Dostupná nastavení
 
-| Klíč | Výchozí | Popis |
-|------|---------|-------|
-| `smile_detection_enabled` | `true` | Zobrazení procenta úsměvu na overlay |
-| `eyes_detection_enabled` | `true` | Zobrazení stavu očí na overlay |
-| `debug_mode_enabled` | `false` | Zobrazení debug panelu s logy |
+| Klíč | Výchozí | Přístup | Popis |
+|------|---------|---------|-------|
+| `smile_detection_enabled` | `true` | Hlavní menu | Zobrazení procenta úsměvu na overlay |
+| `eyes_detection_enabled` | `true` | Hlavní menu | Zobrazení stavu očí na overlay |
+| `debug_mode_enabled` | `false` | SettingsActivity | Zobrazení debug panelu s logy |
 
-### Tlačítka
+> Přepínače Smile a Eyes jsou dostupné pouze přes navigační menu v hlavní obrazovce, nikoliv přes SettingsActivity.
 
-- **Smile Detection** – přepíná zobrazení úsměvu
-- **Eyes Detection** – přepíná zobrazení stavu očí
+### Tlačítka v SettingsActivity
+
 - **Debug Mode** – zapíná/vypíná debug log panel; volá `DebugLogger.setEnabled()`
 - **Clear Names** – smaže všechna uložená jména z `SharedPreferences` i z `FaceIdentificationManager`
 
