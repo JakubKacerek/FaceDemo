@@ -1,0 +1,61 @@
+%%{init: {'theme': 'default', 'flowchart': {'curve': 'step', 'nodeSpacing': 25, 'rankSpacing': 60}}}%%
+graph LR
+
+    subgraph ACTS["Aktivity"]
+        direction TB
+        MA["<b>MainActivity</b><br/>startCamera()<br/>toggleCamera()<br/>analyzeFrame()<br/>captureScreen()"]
+        SA["<b>SettingsActivity</b><br/>onToggleSmile()<br/>onToggleEyes()<br/>onToggleDebug()<br/>onClearNames()"]
+        GA["<b>GalleryActivity</b><br/>loadCaptures()<br/>refreshGallery()"]
+        PDA["<b>PhotoDetailActivity</b><br/>loadImage()<br/>deletePhoto()"]
+    end
+
+    subgraph DETECT["Detekce"]
+        direction TB
+        OD["<b>ObjectDetector</b><br/>detect()<br/>applyNMS()<br/>loadModel()"]
+        BD["<b>BanknoteDetector</b><br/>detect()<br/>applyNMS()<br/>loadModel()"]
+    end
+
+    subgraph OVL["Překryvné vrstvy"]
+        direction TB
+        FO["<b>FaceOverlay</b><br/>updateFaces()<br/>drawFace()<br/>onTouch()<br/>captureFaceCrop()"]
+        ODO["<b>ObjectDetectionOverlay</b><br/>updateDetections()<br/>onDraw()"]
+        BO["<b>BanknoteOverlay</b><br/>updateDetections()<br/>onDraw()"]
+    end
+
+    subgraph REC["Rozpoznávání obličejů"]
+        direction TB
+        FIM["<b>FaceIdentificationManager</b><br/>recognizeByTrackingId()<br/>recognizeByDescriptor()<br/>saveFace()<br/>updateDescriptor()<br/>clearAll()"]
+        FD["<b>FaceDescriptor</b><br/>compute()<br/>cosineSimilarity()<br/>euclideanDistance()"]
+        IF["<b>IdentifiedFace</b><br/>faceId: String<br/>name: String<br/>trackingId: Int"]
+        SFD["<b>SavedFaceData</b><br/>faceId: String<br/>name: String<br/>descriptorCsv: String<br/>descriptorSamples: Int"]
+    end
+
+    subgraph UTILS["Nástroje"]
+        direction TB
+        NV["<b>NV21ToBitmap</b><br/>convert()<br/>rotate()"]
+        CM["<b>CaptureManager</b><br/>saveCapture()<br/>saveFaceCrop()<br/>getAllCaptures()<br/>deleteCapture()"]
+        DL["<b>DebugLogger</b><br/>log()<br/>setEnabled()<br/>setListener()<br/>clear()"]
+        GADP["<b>GalleryAdapter</b><br/>getView()<br/>loadThumbnail()<br/>deleteItem()"]
+    end
+
+    MA --> FO
+    MA --> ODO
+    MA --> BO
+    MA --> OD
+    MA --> BD
+    MA --> CM
+    MA --> DL
+    MA --> NV
+    MA --> SA
+    MA --> GA
+
+    GA --> GADP
+    GA --> CM
+    GA --> PDA
+
+    FO --> FIM
+    FO --> FD
+
+    FIM --> SFD
+    FIM --> IF
+    FD --> IF

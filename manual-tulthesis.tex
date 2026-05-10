@@ -1,0 +1,1653 @@
+\documentclass[FM,BP,CZ]{tulthesis}
+% tento dokument používá balíky specifické pro XeLaTeX a lze jej přeložit
+% jen XeLaTeXem, nemáte-li instalována použitá (komerční) písma, změňte
+% nebo vymažte příkazy \set...font na následujících řádcích
+
+% Autor šablony: Pavel Satrapa: http://www.nti.tul.cz/~satrapa/vyuka/latex-tul/
+
+% Autor komentářů, jejich překladů do EN, nastavení BibLaTeXu a aplikace ČSN ISO 690: Jan Koprnický
+% http://www.fm.tul.cz/personal/jan.koprnicky
+
+% ENGLISH EXPLANATION
+% \documentclass[FM,Dis,EN,fonts,bw,twoside]{tulthesis} % black and white typing, dissertation thesis at FM, written in English with using of TUL Mono font, text is prepared to print on two sides of the paper
+% this document uses packages specific for XeLaTeX and it is possible to 
+% compile it by XeLaTeX only, if you haven't installed used (commercial) fonts
+% change them or erase commands \set...font in following rows
+% settings: FM (faculty: FS, FT, FP, EF, FA, FM, FZS a CXI), Dis (type of thesis: BP, DP, Teze, Autoref, Hab, SP, Proj), EN (written in English language), fonts (activation of TUL fonts), bw (black and white)
+
+% Autor of the template tulthesis: Pavel Satrapa: http://www.nti.tul.cz/~satrapa/vyuka/latex-tul/
+
+% Autor of several comments and their translation into English, BibLaTeX settings and CSN ISO 960 citation standard setting: Jan Koprnický
+% http://www.fm.tul.cz/personal/jan.koprnicky
+
+% poslední změna / last modification viz/see 00README-JK.txt
+
+\newcommand{\verze}{2.0}
+\linespread{1.20}
+\usepackage{polyglossia}
+\setdefaultlanguage{czech} % comment when English is preferred
+%\setdefaultlanguage{english} % comment when Czech is preferred
+
+\usepackage[ 
+    backend=biber
+     % ,style=iso-authoryear % styl vyžaduje FZS TUL , místo příkazu \cite{} je potřeba využít \parencite{} (sazba kulatých závorek) / style required by FZS TUL use \parencite{} instead of \cite{}
+    ,style=iso-numeric
+    %,style=numeric
+    %,sortlocale=cs_CZ
+    ,sorting=nyt %seřazeno jméno, rok, titul
+    ,autolang=other
+    ,bibencoding=UTF8
+    %,urldate=edtf
+    ,maxcitenames=2 %maximum v textu citovaných jmen
+    ,maxbibnames=3 %maximum v seznamu vyjmenovaných autorů
+    ]{biblatex}
+\addbibresource{refTULTHESIS.bib}% vložení seznamu literárních zdrojů v bib formátu / input of references in bib format
+
+% Úprava iso-numeric.bbx v souladu s požadavky TUL hranaté závorky v číslovaném seznamu / Modification of iso-numeric.bbx in accordance with TUL requirements of square brackets in a numbered list
+\DeclareFieldFormat{labelnumberwidth}{\mkbibbrackets{#1}}
+\nocite{*} % tím načteš všechny položky z .bib souboru
+
+% Formátování podle pokynů FZS, při využití stylu iso-authoryear, čárka mezi jmény a poslední jméno se spojkou a / special requirements of FZS TUL 
+\DeclareDelimFormat{multinamedelim}{\addcomma\space}
+
+\DeclareDelimFormat{finalnamedelim}{%
+  \ifnumgreater{\value{liststop}}{2}{\finalandcomma}{}%
+  \addspace\bibstring{and}\space}
+
+\DeclareNameAlias{author}{family-given/given-family} 
+\usepackage{makeidx}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\graphicspath{{Figures/}{screenshoty/}}
+\makeindex
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{xunicode}
+\usepackage{xltxtra}
+\usepackage{caption}
+\DeclareCaptionType{equ}[][]
+\captionsetup{justification=centering}
+
+% příkazy specifické pro tento dokument / specific commands for this document
+\newcommand{\argument}[1]{{\ttfamily\color{\tulcolor}#1}}
+\newcommand{\argumentindex}[1]{\argument{#1}\index{#1}}
+\newcommand{\prostredi}[1]{\argumentindex{#1}}
+\newcommand{\prikazneindex}[1]{\argument{\textbackslash #1}}
+\newcommand{\prikaz}[1]{\prikazneindex{#1}\index{#1@\textbackslash #1}}
+\newenvironment{myquote}{\begin{list}{}{\setlength\leftmargin\parindent}\item[]}{\end{list}}
+\newenvironment{listing}{\begin{myquote}\color{\tulcolor}}{\end{myquote}}
+\sloppy
+
+% deklarace pro titulní stránku / title page declaration
+\TULtitle{Mobilní aplikace využívající algoritmy pro zpracování a rozpoznávání obrazu}{Mobilní aplikace využívající algoritmy pro zpracování a rozpoznávání obrazu}
+\TULauthor{Jakub Káčerek}
+
+% pro bakalářské, diplomové a disertační práce / for bachelor, master theses and dissertation
+\TULprogramme{B0613A140005}{Informační technologie}{Information technology}
+\TULbranch{B0613A140005AI}{Aplikovaná informatika}{Information technology}
+%\TULbranch{1802T008}{Nějaký jiný obor}{Some other branch}
+\TULsupervisor{doc. Ing. Josef Chaloupka, Ph.D.}
+%\TULconsultant{doc. RNDr. Pavel Satrapa, Ph.D.}
+%\TULconsultant{doc. RNDr. Druhý Konzultant, Ph.D.}
+%\TULconsultant{doc. RNDr. Třetí Konzultant, Ph.D.}
+\TULyear{2025}
+
+% pro habilitační práce / habilitation thesis
+%\TULbranch{}{Technická kybernetika}{Technical cybernetics}
+%\TULyear{2022}
+
+
+
+\usepackage{csquotes} %užití biblatexu hlasí warnings, důvodem může být použití českých uvozovek v citacích! / solving of problems with Czech quotations
+\urlstyle{same} %sazba url odkazů stejným fontem jako ostatní text, řešení problémů v zalamování hypertextových odkazů v citacích / url in references setting into the same form as text 
+
+\usepackage{listings} %package for sourcode typesetting
+%řešení problémů češtiny např. při sazbě zdrojových kódů / czech special characters in sourcecode typesetting
+\makeatletter
+\lst@InputCatcodes
+\def\lst@DefEC{%
+ \lst@CCECUse \lst@ProcessLetter
+  ^^80^^81^^82^^83^^84^^85^^86^^87^^88^^89^^8a^^8b^^8c^^8d^^8e^^8f%
+  ^^90^^91^^92^^93^^94^^95^^96^^97^^98^^99^^9a^^9b^^9c^^9d^^9e^^9f%
+  ^^a0^^a1^^a2^^a3^^a4^^a5^^a6^^a7^^a8^^a9^^aa^^ab^^ac^^ad^^ae^^af%
+  ^^b0^^b1^^b2^^b3^^b4^^b5^^b6^^b7^^b8^^b9^^ba^^bb^^bc^^bd^^be^^bf%
+  ^^c0^^c1^^c2^^c3^^c4^^c5^^c6^^c7^^c8^^c9^^ca^^cb^^cc^^cd^^ce^^cf%
+  ^^d0^^d1^^d2^^d3^^d4^^d5^^d6^^d7^^d8^^d9^^da^^db^^dc^^dd^^de^^df%
+  ^^e0^^e1^^e2^^e3^^e4^^e5^^e6^^e7^^e8^^e9^^ea^^eb^^ec^^ed^^ee^^ef%
+  ^^f0^^f1^^f2^^f3^^f4^^f5^^f6^^f7^^f8^^f9^^fa^^fb^^fc^^fd^^fe^^ff%
+% české znaky
+  ^^^^010c^^^^010d^^^^010e^^^^010f^^^^011a^^^^011b^^^^0147^^^^0148%
+  ^^^^0158^^^^0159^^^^0160^^^^0161^^^^0164^^^^0165%
+  ^^^^016e^^^^016f^^^^017d^^^^017e%
+  ^^00}
+\lst@RestoreCatcodes
+\makeatother
+
+\lstdefinelanguage{Kotlin}{
+  keywords={fun,val,var,class,object,if,else,return,for,while,when,null,true,false,override,private,public,internal,protected,data,suspend,companion,by,lazy,it,is,in,as,import,package,interface,abstract,open,sealed,enum,init,constructor,get,set,this,super},
+  sensitive=true,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+  morestring=[b]'
+}
+\lstset{
+  language=Kotlin,
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{gray!40},
+  backgroundcolor=\color{gray!5},
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!40!black}\itshape,
+  stringstyle=\color{orange!70!black},
+  showstringspaces=false,
+  tabsize=4,
+  captionpos=b
+}
+
+\begin{document}
+\ThesisStart{vskp_-_zadani_vskp.pdf}
+
+
+\begin{abstractCZ}
+Práce se zabývá návrhem a implementací mobilní aplikace pro platformu Android určené ke zpracování a rozpoznávání obrazu v~reálném čase. Aplikace implementovaná v~jazyce Kotlin umožňuje detekci a rozpoznávání obličejů na základě živého obrazového signálu z~kamery zařízení. K~tomuto účelu je využit detektor Google ML Kit Face Detection, vlastní systém geometrických deskriptorů odvozených z~obličejových landmarků a kosinová podobnost jako metrika shody totožnosti. Součástí aplikace je rovněž detekce obecných objektů pomocí modelu architektury YOLO trénovaného na datové sadě COCO a specializovaný detektor bankovek, přičemž oba modely jsou provozovány prostřednictvím frameworku TensorFlow Lite. Klíčovým aspektem práce je optimalizace výpočetního procesu pro omezené prostředky mobilních zařízení, dosažená kvantizací modelů a hardwarovou akcelerací přes rozhraní NNAPI. Biometrická data jsou chráněna šifrováním AES-256-GCM v~rámci EncryptedSharedPreferences s~klíčem uloženým v~Android Keystore, čímž je zajištěn soulad s~požadavky nařízení GDPR. Výsledná aplikace FaceDemo funguje plně na zařízení bez nutnosti síťového připojení a demonstruje praktickou aplikovatelnost metod počítačového vidění v~podmínkách reálného nasazení na mobilní hardware střední třídy.
+\end{abstractCZ}
+
+\begin{keywordsCZ}
+mobilní aplikace, zpracování obrazu, rozpoznávání obličeje, landmarky, geometrický deskriptor, YOLO, TFLite, Google ML Kit, počítačové vidění
+\end{keywordsCZ}
+
+\vspace{2cm}
+
+\begin{abstractEN}
+This bachelor’s thesis addresses the design and implementation of a mobile application for the Android platform capable of real-time image processing and recognition. The application, developed in Kotlin, enables face detection and recognition from a live camera feed by employing Google ML Kit Face Detection, a custom geometric descriptor system derived from facial landmarks, and cosine similarity as the identity matching metric. In addition, the application integrates detection of common objects using a YOLO-architecture model trained on the COCO dataset and a specialised banknote detector, both executed via the TensorFlow Lite framework. A key contribution of the work is the optimisation of the inference pipeline for the constrained resources of mobile devices, achieved through model quantisation and hardware acceleration via the NNAPI interface. Biometric data are protected using AES-256-GCM encryption within EncryptedSharedPreferences, with cryptographic keys stored in the Android Keystore, ensuring compliance with GDPR requirements. The resulting application, FaceDemo, operates fully on-device without network connectivity and demonstrates the practical feasibility of deploying computer vision methods on mid-range mobile hardware under real-world conditions.
+\end{abstractEN}
+
+\begin{keywordsEN}
+mobile application, image processing, face recognition, facial landmarks, geometric descriptor, YOLO, TFLite, Google ML Kit, computer vision
+\end{keywordsEN}
+
+\clearpage
+
+\begin{acknowledgement}
+Touto cestou bych chtěl poděkovat mému vedoucímu práce za asistenci a navádění v případných problémech.
+\newline Dále bych chtěl poděkovat mé rodině a přátelům, kteří mě podporovali po celou dobu mého studia.
+\newline A v hlavní řadě bych chtěl poděkovat mé úžasné přítelkyni, která při mě celou dobu stála a podporovala mě.
+\end{acknowledgement}
+
+\tableofcontents
+
+\clearpage
+
+\begin{abbrList}
+\textbf{AES} & Advanced Encryption Standard (standard symetrického blokového šifrování, NIST FIPS 197) \\
+\textbf{AI} & Artificial Intelligence (umělá inteligence) \\
+\textbf{API} & Application Programming Interface (rozhraní pro programování aplikací) \\
+\textbf{CCPA} & California Consumer Privacy Act (kalifornský zákon o ochraně soukromí spotřebitele) \\
+\textbf{CNN} & Convolutional Neural Network (konvoluční neuronová síť) \\
+\textbf{COCO} & Common Objects in Context (veřejná datová sada pro detekci a segmentaci objektů) \\
+\textbf{CV} & Computer Vision (počítačové vidění) \\
+\textbf{EMA} & Exponential Moving Average (exponenciálně vážený klouzavý průměr) \\
+\textbf{FP16} & 16-bit Floating Point (formát plovoucí řádové čárky s~poloviční přesností) \\
+\textbf{FP32} & 32-bit Floating Point (formát plovoucí řádové čárky s~jednoduchou přesností) \\
+\textbf{FPS} & Frames Per Second (snímků za sekundu; míra plynulosti zpracování videa) \\
+\textbf{GDPR} & General Data Protection Regulation (nařízení EU 2016/679 o ochraně osobních údajů) \\
+\textbf{GPU} & Graphics Processing Unit (grafický procesor) \\
+\textbf{HSV} & Hue, Saturation, Value (barevný model: odstín, sytost, hodnota jasu) \\
+\textbf{ID} & Identifier (jednoznačný identifikátor) \\
+\textbf{INT8} & 8-bit Integer (celočíselný formát s~8 bity; kvantizace pro efektivní inferenci) \\
+\textbf{IoU} & Intersection over Union (průnik ku sjednocení; metrika překryvu bounding boxů) \\
+\textbf{JPEG} & Joint Photographic Experts Group (standard ztrátové komprese rastrových obrazů) \\
+\textbf{JSON} & JavaScript Object Notation (textový formát pro výměnu strukturovaných dat) \\
+\textbf{ML} & Machine Learning (strojové učení) \\
+\textbf{ML Kit} & Machine Learning Kit (sada knihoven Google pro on-device strojové učení na mobilních zařízeních) \\
+\textbf{NMS} & Non-Maximum Suppression (potlačení nemaximálních hodnot; post-processing detekcí) \\
+\textbf{NNAPI} & Neural Networks API (Android rozhraní pro hardwarovou akceleraci neuronových sítí) \\
+\textbf{NPU} & Neural Processing Unit (dedikovaný hardwarový akcelerátor pro inferenci neuronových sítí) \\
+\textbf{NV21} & Formát obrazových dat kamery Android; YUV 4:2:0 s~prokládanými složkami V a U \\
+\textbf{OCR} & Optical Character Recognition (optické rozpoznávání znaků) \\
+\textbf{RAM} & Random Access Memory (operační paměť) \\
+\textbf{RGB} & Red, Green, Blue (aditivní barevný model; základní formát rastrových obrazů) \\
+\textbf{SDK} & Software Development Kit (sada nástrojů pro vývoj softwaru) \\
+\textbf{SSD} & Single Shot MultiBox Detector (architektura jednofázové detekce objektů) \\
+\textbf{TFLite} & TensorFlow Lite (odlehčená verze frameworku TensorFlow pro mobilní a vestavěná zařízení) \\
+\textbf{UI} & User Interface (uživatelské rozhraní) \\
+\textbf{YOLO} & You Only Look Once (architektura neuronové sítě pro jednofázovou detekci objektů) \\
+\textbf{YUV} & Y -- jasová složka (luma); U, V -- chrominanční složky; formát YUV\_420\_888 používán CameraX \\
+\end{abbrList}
+
+\chapter{Úvod}
+
+Zpracování a rozpoznávání obrazu představuje jedno z~nejdynamičtěji se rozvíjejících odvětví informatiky posledních desetiletí. Rozvoj hlubokého učení, zejména konvolučních neuronových sítí, a dostupnost rozsáhlých annotovaných datových sad zásadně zvýšily přesnost i robustnost systémů počítačového vidění. Tyto pokroky se promítají do řady aplikačních oblastí -- od medicínské diagnostiky a autonomního řízení vozidel až po průmyslovou automatizaci a biometrické přístupové systémy.
+
+Souběžně s~tím zaznamenávají mobilní zařízení výrazný nárůst výpočetního výkonu. Moderní smartphony disponují dedikovanými neuronovými procesory (NPU) schopnými provádět inferencí na úrovni, která byla ještě nedávno dostupná pouze na desktopovém hardware. Frameworky jako TensorFlow Lite \cite{tensorflow2015whitepaper} a Google ML Kit \cite{googlemlkit2024} umožňují nasazení předtrénovaných modelů přímo na zařízení bez nutnosti cloudové infrastruktury, čímž se otevírají nové možnosti pro on-device zpracování obrazu při zachování soukromí uživatele v~souladu s~nařízením GDPR \cite{gdpr2016}.
+
+Tato bakalářská práce se zaměřuje na návrh a implementaci mobilní aplikace FaceDemo pro platformu Android, která integruje několik algoritmů počítačového vidění pracujících v~reálném čase. Hlavním cílem je demonstrovat praktickou využitelnost moderních metod detekce a rozpoznávání obrazu v~podmínkách omezených výpočetních prostředků mobilního zařízení. Konkrétně aplikace umožňuje: (1)~detekci a rozpoznávání obličejů na základě geometrických deskriptorů landmarků, (2)~detekci obecných objektů architekturou YOLO \cite{redmon2016yolo} natrénovanou na datové sadě COCO \cite{lin2014coco}, a (3)~specializovanou detekci bankovek -- vše provozované on-device bez síťového připojení.
+
+Vývoj mobilních aplikací v~oblasti počítačového vidění klade specifické nároky. Klíčovou výzvou je optimalizace algoritmů pro omezený výpočetní výkon a paměť zařízení při zachování dostatečné přesnosti a plynulosti zpracování. Dalšími faktory jsou správa životního cyklu kamerového pipelinu, variabilita vstupních dat (osvětlení, úhly pohledu, pohybová neostrost) a ochrana biometrických dat před neoprávněným přístupem.
+
+Práce je strukturována do pěti hlavních kapitol. Kapitola~2 popisuje současnou problematiku mobilního zpracování obrazu a přehled existujících řešení na trhu. Kapitola~3 tvoří teoretický základ -- jsou zde popsány metody předzpracování obrazu, konvoluční neuronové sítě, principy detekce a rozpoznávání obličejů pomocí geometrických deskriptorů, architektura YOLO, technologie TensorFlow Lite, kamerový framework CameraX a zabezpečení biometrických dat pomocí šifrování AES-256. Kapitola~4 se věnuje struktuře uživatelského rozhraní aplikace. Kapitola~5 popisuje konkrétní implementaci klíčových algoritmů. Závěr shrnuje dosažené výsledky a nastiňuje možnosti dalšího rozvoje.
+
+Výstupem práce je plně funkční Android aplikace FaceDemo demonstrující nasazení počítačového vidění přímo na mobilním zařízení, s~důrazem na efektivitu, přesnost rozpoznávání a ochranu biometrických dat uživatele.
+
+\chapter{Současná problematika a state-of-the-art aplikace}
+\label{chap:state}
+Mobilní aplikace využívající detekci a rozpoznávání obličejů, detekci obecných objektů a analýzu scény v reálném čase představují dynamicky se rozvíjející oblast, která se opírá o pokroky v oblasti strojového učení, zpracování obrazu a mobilních technologií. Tato kapitola popisuje současné výzvy provázející vývoj těchto aplikací a uvádí přehled nejvýznamnějších moderních řešení dostupných na trhu.
+
+\section{Technické výzvy mobilního zpracování v reálném čase}
+Významnou výzvou je omezený výpočetní výkon mobilních zařízení. Na rozdíl od výkonných desktopových počítačů, které běžně disponují dedikovanými GPU akcelerátory, musí být mobilní aplikace optimalizovány pro běh na procesorech s omezeným výkonem a kapacitou paměti. To vede k nutnosti nasazení zjednodušených a efektivních modelů neuronových sítí, jako jsou MobileNet \cite{howard2017mobilenets}, BlazeFace \cite{bazarevsky2019blazeface}, EfficientNet-Lite nebo CRNN, které nabízejí rozumný kompromis mezi přesností a rychlostí.
+
+Při zajištění plynulého zpracování obrazu v reálném čase je kritická latence – aplikace by měly reagovat do několika desítek až stovek milisekund. To vyžaduje optimalizace jak na úrovni inference (např. použití kvantizovaných modelů INT8 nebo FP16 \cite{tensorflow2015whitepaper}), tak na úrovni samotného zpracování snímků – včetně konverze barevných prostorů (např. z YUV420 nebo NV21 do RGB), synchronizace mezi vláknem pro záznam obrazu a vláknem pro inference, a snížení frekvence snímkování tak, aby byla zachována rovnováha mezi výkonem a výdrží baterie. Výzvou zůstává také správné škálování aplikace pro různá zařízení s různými verzemi Android/iOS, různým hardwarem a verzemi NPU/Tensor jednotek.
+
+\section{Kvalita a variabilita vstupních dat}
+Kvalita detekce a rozpoznávání je silně závislá na kvalitě vstupních obrazových dat. Mobilní zařízení jsou často používána v různorodých podmínkách – za špatného osvětlení, při pohybu uživatele nebo cílového objektu, či při silném protisvětle. Tyto faktory způsobují problémy jako je rozmazání, šum, nedostatečný kontrast nebo deformace obrazu způsobené perspektivou.
+
+V oblasti rozpoznávání obličejů je klíčovou výzvou robustnost vůči proměnlivým podmínkám – různým úhlům natočení hlavy, výrazům tváře, částečnému zakrytí nebo prudkým změnám osvětlení \cite{wang2021survey}. Modely musí být schopny rozlišit jemné geometrické odchylky mezi různými osobami a zároveň tolerovat přirozené variace téže osoby v průběhu času \cite{wang2021survey}. V oblasti detekce obecných objektů pak hraje roli schopnost spolehlivě rozpoznávat objekty různých velikostí, při překrytí jinými objekty a v nestandardní perspektivě, při zachování výkonu potřebného pro real-time zpracování \cite{redmon2016yolo}.
+
+\section{Ochrana soukromí a etické aspekty}
+Vzhledem k tomu, že aplikace pracují s citlivými daty – ať už se jedná o biometrické rysy obličeje nebo textové informace, které mohou obsahovat osobní údaje – je třeba věnovat zvýšenou pozornost ochraně soukromí a souladu s legislativou. Zvláště důležité je zajistit, že veškeré zpracování probíhá v souladu s pravidly jako je GDPR v Evropské unii \cite{gdpr2016} nebo CCPA v Kalifornii.
+
+Z technického hlediska to znamená minimalizovat množství dat odesílaných na cloud, šifrovat veškerou komunikaci a ideálně zpracovávat data přímo na zařízení. Moderní přístupy využívají tzv. on-device inference, kdy je model nahrán a spuštěn přímo na mobilním zařízení bez nutnosti odesílání snímků na vzdálený server. Dalším trendem je federativní učení, při kterém se model učí na lokálních datech a sdílí pouze váhové aktualizace, nikoliv samotná data – čímž je výrazně sníženo riziko úniku citlivých informací. V praxi je třeba uživatelům také nabídnout transparentní informace o tom, jaká data jsou sbírána, jak jsou zpracovávána, a možnost jejich smazání.
+\newpage
+\section{State-of-the-art aplikace}
+\begin{itemize}
+\item \textbf{Google Lens} \\
+Tato aplikace představuje špičku v oblasti vizuální analýzy. Umožňuje v reálném čase rozpoznávat text, objekty, rostliny, zvířata nebo budovy. Kromě OCR nabízí i překlad textu, extrakci kontaktů z vizitek, či vyhledávání produktů podle obrázku. Pro mobilní inference využívá ML Kit a TensorFlow Lite, přičemž pro složitější analýzy spoléhá na cloudové služby Google Cloud Vision.
+\begin{center}
+\begin{minipage}{0.78\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{google_lens-screenshot}
+    \captionof{figure}{Google Lens -- screenshot aplikace \cite{googlelens2024}}
+    \label{fig:googlelens}
+\end{minipage}
+\end{center}
+
+\item \textbf{Microsoft Seeing AI} \\
+Jedná se o asistivní aplikaci pro osoby se zrakovým postižením, která integruje OCR, rozpoznávání osob, emocí a popisování prostředí. Například dokáže přečíst text z dokumentu, určit pohlaví a přibližný věk osoby, rozpoznat čárový kód nebo nahlas popsat, co se nachází v záběru kamery. Využívá technologie Microsoft Azure Cognitive Services a strojového učení optimalizovaného pro mobilní prostředí.
+\begin{center}
+\begin{minipage}{0.78\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{seeing_ai-screenshot}
+    \captionof{figure}{Microsoft Seeing AI -- screenshot aplikace \cite{seeingai2024}}
+    \label{fig:seeingai}
+\end{minipage}
+\end{center}
+
+\item \textbf{Snapchat / Instagram Filters} \\
+Tyto aplikace využívají detekci a sledování obličeje pro aplikaci interaktivních filtrů v reálném čase. Díky modelům jako je BlazeFace \cite{bazarevsky2019blazeface}, MediaPipe Face Mesh nebo i vlastní implementace detekce bodů na obličeji, dokáží přesně mapovat rysy obličeje i při pohybu a různých světelných podmínkách. Tyto technologie nacházejí uplatnění i mimo zábavu – např. v oblasti kosmetiky, zábavy nebo telekonferencí.
+\begin{center}
+\begin{minipage}{0.78\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{Snapchat-screenshot}
+    \captionof{figure}{Snapchat -- ukázka filtrů rozpoznávání obličeje \cite{snapchat2024}}
+    \label{fig:snapchat}
+\end{minipage}
+\end{center}
+
+\item \textbf{CamScanner, Adobe Scan} \\
+Tyto nástroje se specializují na digitalizaci papírových dokumentů pomocí mobilního zařízení. Detekují hranice dokumentu, upravují perspektivu, zvyšují kontrast a provádějí OCR pro převod obsahu do vyhledatelného textu. Výsledky lze exportovat jako PDF nebo upravovat přímo v aplikaci. Pro OCR často využívají knihovny jako Tesseract OCR nebo vlastní cloudové služby.
+\begin{center}
+\begin{minipage}{0.78\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{Camscanner-screenshot}
+    \captionof{figure}{CamScanner -- screenshot aplikace pro digitalizaci dokumentů \cite{camscanner2024}}
+    \label{fig:camscanner}
+\end{minipage}
+\end{center}
+
+\end{itemize}
+\newpage
+\section{Směřování dalšího vývoje}
+Do budoucna se očekává zrychlování a zefektivňování modelů díky technikám jako je model pruning (odstraňování nadbytečných neuronů), knowledge distillation (přenos znalostí z většího modelu do menšího) a kvantizace \cite{goodfellow2016deeplearning}. Nové architektury jako MobileOne nebo EfficientFormer jsou navrženy přímo pro mobilní inference a umožňují běh složitých modelů i na zařízeních střední třídy \cite{howard2017mobilenets}.
+
+Zároveň se zvyšuje důraz na bezpečnost a vysvětlitelnost rozhodnutí modelu – tzv. explainability. To je klíčové především v aplikacích v medicíně, právu nebo veřejné správě, kde je nutné rozumět tomu, proč model dospěl k určitému závěru.
+
+Jedním z nejzajímavějších směrů vývoje je multimodální zpracování – tedy kombinace obrazu, textu a zvuku v reálném čase. Takové systémy mohou například současně detekovat obličej, číst text na obrazovce a interpretovat hlas uživatele, čímž vznikají nové možnosti v oblasti asistivních technologií, bezpečnostních systémů i chytrých průmyslových řešení.
+
+\chapter{Teoretické základy zpracování a rozpoznávání obrazu}
+\label{chap:theory}
+
+Oblast zpracování obrazu a jeho rozpoznávání se v posledních desetiletích výrazně rozvinula díky pokrokům v oblasti počítačového vidění, umělé inteligence a dostupnosti výpočetních prostředků \cite{gonzalez2018digital}. Algoritmy určené pro analýzu obrazových dat umožňují nejen úpravu a filtraci obrazu, ale především jeho hlubší interpretaci a automatickou klasifikaci objektů \cite{goodfellow2016deeplearning}. Díky těmto metodám lze efektivně detekovat tvary, rozpoznávat obličeje, analyzovat pohyb či dokonce provádět segmentaci scény v reálném čase.
+
+Tato kapitola poskytuje teoretický přehled metod a přístupů, které jsou přímo využity v aplikaci FaceDemo. Nejprve jsou popsány obecné principy předzpracování obrazu – konverze barevných prostorů, normalizace jasu a kontrastu, potlačení šumu a detekce hran. Následně jsou představeny klíčové algoritmy: konvoluční neuronové sítě jako základ ML Kit detektoru, princip detekce obličejových landmarků, geometrický deskriptor pro rozpoznávání identity, metoda YOLO pro detekci objektů a technologie TensorFlow Lite umožňující on-device inference na mobilním zařízení.
+
+\section{Předzpracování obrazu}
+Předzpracování obrazu je klíčovým krokem v počítačovém vidění, který zajišťuje správnou kvalitu vstupních dat pro následné algoritmy zpracování a rozpoznávání \cite{gonzalez2018digital}. Hlavním cílem této fáze je eliminovat nežádoucí šum, zvýraznit důležité rysy obrazu a normalizovat jeho parametry tak, aby následné modely dosahovaly co nejlepších výsledků.
+\newpage
+\section{Konverze barev}
+Konverze barev je jedním ze základních kroků předzpracování obrazu v oblasti počítačového vidění a digitálního zpracování obrazu \cite{gonzalez2018digital}. Tento proces zahrnuje transformaci obrazu z jednoho barevného prostoru do jiného, což umožňuje efektivnější analýzu, detekci a rozpoznávání objektů. Každý barevný model je vhodný pro různé aplikace a umožňuje extrakci specifických vlastností obrazu, jako jsou kontrast, sytost, jas nebo barevné složky.
+
+V kontextu strojového vidění je klíčové zvolit vhodný barevný prostor v závislosti na aplikaci. Například pro rozpoznávání obličejů může být vhodnější pracovat v prostoru \textbf{YCrCb} \cite{wang2021survey}, zatímco pro segmentaci objektů podle barvy se často používá \textbf{HSV} \cite{gonzalez2018digital}.
+
+\begin{enumerate}
+    \item \textbf{RGB} - Každá složka má obvykle hodnoty v rozsahu 0–255 (8bitová reprezentace). Kombinací těchto složek vznikají různé barvy. RGB model je vhodný pro vizualizaci, ale není optimální pro analýzu obrazu, protože není dobře oddělen jas a barva \cite{gonzalez2018digital}.
+    \item Konverze do stupňů šedi (\textbf{grayscale}) znamená odstranění barevných informací a ponechání pouze informace o jasu. Obraz je pak reprezentován jediným kanálem s hodnotami od 0 (černá) do 255 (bílá). \textbf{Grayscale} obraz se často používá v počítačovém vidění, protože mnoho algoritmů, například detekce hran nebo OCR, nevyžaduje barevné informace \cite{gonzalez2018digital}.
+    \item \textbf{YUV} formát využívá jasovou složku (Y) a podvzorkované chrominanční složky (U, V) \cite{gonzalez2018digital}. Pro vstup do Google ML Kit (požadující RGB, tvar [1, 224, 224, 3] je nutné provést konverzi NV21 (nativní formát výstupu z kamery) do RGB.
+    \newline
+\begin{align}
+\begin{bmatrix}
+R \\
+G \\
+B
+\end{bmatrix}
+&=
+\begin{bmatrix}
+1 & 0 & 1.13983 \\
+1 & -0.39465 & -0.58060 \\
+1 & 2.03211 & 0
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+Y \\
+U \\
+V
+\end{bmatrix}
+\end{align}
+
+
+    \item \textbf{YCrCb} je barevný model používaný v televizním a obrazovém zpracování \cite{gonzalez2018digital}. Odděluje jasovou složku (\textbf{Y}) od barevných složek (\textbf{Cr} – červeno-modrá a \textbf{Cb} – modro-zelená). Tato separace umožňuje efektivní kompresi obrazu a je také využívána pro detekci obličejů \cite{wang2021survey}.
+\end{enumerate}
+\newpage
+
+
+Konverze barev je klíčový krok v předzpracování obrazu, který umožňuje lepší analýzu a detekci objektů. Výběr správného barevného modelu závisí na konkrétní aplikaci – zatímco RGB je vhodný pro vizualizaci, YUV a YCrCb jsou efektivní pro segmentaci a detekci. V této práci jsou barevné modely využívány zejména při konverzi snímků kamery z formátu YUV420 do RGB pro zpracování pomocí ML Kit a TFLite modelů.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.97\textwidth]{color_conversion}
+    \caption{Srovnání barevných prostorů na stejném snímku: RGB, Grayscale, HSV a YCrCb \cite{img_color_conversion}}
+    \label{fig:color_conversion}
+\end{figure}
+
+\section{Normalizace jasu a kontrastu}
+Normalizace jasu a kontrastu je klíčový krok předzpracování obrazu, který zajišťuje konzistentní osvětlení a zlepšuje viditelnost detailů \cite{gonzalez2018digital}. Tento proces se často používá ve strojovém vidění, aby se minimalizovaly rozdíly v osvětlení a umožnilo se tak robustnější zpracování obrazu.
+
+Například při rozpoznávání obličejů může mít různá intenzita světla vliv na detekční algoritmy \cite{wang2021survey}. Podobně při OCR může být špatný kontrast překážkou při správné segmentaci textu. Cílem normalizace je tedy zajistit, aby byl obraz jednotně osvětlený a obsahoval dobře rozeznatelné prvky \cite{gonzalez2018digital}.
+\begin{enumerate}
+    \item \textbf{Normalizace jasu}
+    \begin{enumerate}
+        \item \textbf{Lineární normalizace jasu}
+        - Nejjednodušší metodou je lineární transformace hodnot pixelů tak, aby pokryly celý rozsah 0–255 \cite{gonzalez2018digital}. To se provádí podle vzorce:
+        \begin{equation}
+            I' = \frac{I - Imin}{Imax - Imin} * 255
+        \end{equation}
+        kde: 
+        \begin{itemize}
+            \item \textbf{\textit{I}} je původní hodnota pixelu
+            \item \textbf{\textit{Imin}} je nejnižší intenzita v obraze
+            \item \textbf{\textit{Imax}} je nevyšší intenzita v obraze
+        \end{itemize}
+        \item \textbf{Gamma korekce}
+        - Gamma korekce umožňuje upravit jas obrazu nelineárním způsobem \cite{gonzalez2018digital}. Používá se vzorec:
+        \begin{equation}
+            I' = 255 \times \left( \frac{I}{255} \right)^{\Gamma}
+        \end{equation}
+        kde \( \Gamma \) určuje sílu korekce. Pokud \( \Gamma < 1 \), obraz se zesvětlí, pokud \( \Gamma > 1 \), obraz se ztmaví.   
+        \newline Gamma korekce je užitečná při zpracování snímků pořízených za špatných světelných podmínek.
+        \item \textbf{Klasická ekvalizace} histogramu může někdy vést k přehnanému kontrastu. \textbf{CLAHE} (Contrast Limited Adaptive Histogram Equalization) je vylepšená metoda, která pracuje s lokálními oblastmi obrazu, čímž se vyhýbá přepáleným světlým nebo tmavým oblastem \cite{gonzalez2018digital}.
+    \end{enumerate}
+    \item \textbf{Normalizace kontrastu}
+    \begin{enumerate}
+        \item \textbf{Ekvalizace histogramu} redistribuuje jasové hodnoty tak, aby byly rovnoměrněji rozloženy \cite{gonzalez2018digital}. Tento postup zvýrazňuje detaily v tmavých i světlých oblastech a je efektivní pro zlepšení kontrastu černobílých snímků.
+
+        \item \textbf{Normalizace kontrastu pomocí NORM\_MINMAX}
+        - Tato metoda pracuje podobně jako lineární normalizace jasu, ale aplikuje se na kontrast \cite{gonzalez2018digital}. Tento přístup pomáhá zdůraznit rozdíly mezi objekty a pozadím.
+
+    \item \textbf{Změna kontrastu a jasu ručně} - Jas a kontrast lze upravit jednoduchou lineární transformací \cite{gonzalez2018digital}:
+    \begin{equation}
+        I' = \alpha I + \beta
+    \end{equation}
+    kde:
+    \begin{itemize}
+        \item \( \alpha \) je koeficient kontrastu (>1 zvýší kontrast, <1 sníží kontrast)
+        \item \( \beta \) je přírůstek jasu
+    \end{itemize}
+    
+    \end{enumerate}
+    \item \textbf{Použití v počítačovém vidění}
+    \newline Normalizace jasu a kontrastu je klíčová pro následující oblasti relevantní pro aplikaci FaceDemo:
+    \begin{itemize}
+        \item \textbf{Rozpoznávání obličejů} – snímání mobilní kamerou probíhá za velmi různých světelných podmínek; normalizace zajišťuje, že geometrický deskriptor tváře zůstane stabilní bez ohledu na osvětlení scény.
+        \item \textbf{Detekce objektů (YOLO)} – rovnoměrné osvětlení snímku zlepšuje přesnost hraničních boxů a snižuje počet falešně pozitivních detekcí.
+        \item \textbf{Snímky z mobilní kamery} – automatická expozice mobilního zařízení může způsobovat fluktuace jasu mezi snímky; normalizace tyto výkyvy tlumí a zvyšuje konzistenci inference.
+    \end{itemize}
+    Metody jako gamma korekce, CLAHE nebo lineární přeškálování poskytují různé způsoby přizpůsobení obrazu konkrétní aplikaci a světelné situaci.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{Brightness_normalization}
+    \caption{Vliv normalizace jasu na kvalitu snímku -- před a po aplikaci CLAHE \cite{img_brightness}}
+    \label{fig:brightness_norm}
+\end{figure}
+
+\section{Odstranění šumu v obraze}
+Odstranění šumu je klíčovým krokem v předzpracování obrazu, protože šum může negativně ovlivnit výkonnost následných algoritmů pro rozpoznávání a analýzu \cite{gonzalez2018digital}. Šum v obrazech může mít různé příčiny, například elektronické rušení, nízké osvětlení, kompresní artefakty nebo pohybovou neostrost. Existuje několik metod pro redukci šumu, které jsou vybírány na základě povahy šumu a požadované kvality výstupu \cite{gonzalez2018digital}.
+\begin{enumerate}
+
+    \item \textbf{Typy šumu v obraze} \cite{gonzalez2018digital}
+    \begin{enumerate}
+        \item \textbf{Gaussovský šum} – Náhodné odchylky jasu způsobené například senzory fotoaparátu.
+        \item \textbf{Sůl a pepř šum} – Náhodně se vyskytující černé a bílé body v obraze, často způsobené poruchami přenosu.
+        \item \textbf{Poissonův šum} – Vyskytuje se při nízkém osvětlení kvůli kvantové povaze světla.
+        \item \textbf{Šum způsobený kompresí} – Vzniká při ztrátové kompresi obrazu, například u JPEG.
+    \end{enumerate}
+    \item \textbf{Metody odstranění šumu}
+    \begin{enumerate}
+        \item \textbf{Gaussovské rozostření (Gaussian Blur)}
+        \newline Gaussovský filtr je efektivní metoda pro odstranění náhodného šumu, která funguje na principu konvoluce obrazu s Gaussovskou funkcí \cite{gonzalez2018digital}. Tento filtr změkčuje obraz a odstraňuje drobné detaily, které mohou být interpretovány jako šum.
+        \begin{equation}
+            G(x,y) = \frac{1}{\pi \sigma^2} e^{-\frac{x^2+y^2}{2\sigma^2}}
+        \end{equation}
+        kde \( \sigma \) řídí úrověň rozostření.
+    
+        \item \textbf{Mediánový filtr (Median Filter)}
+        \newline Mediánový filtr je vhodný zejména pro odstranění šumu typu „sůl a pepř" \cite{gonzalez2018digital}. Na rozdíl od Gaussovského filtru zachovává hrany, což je výhodné při zpracování textu nebo ostrých hran v obraze.
+        \item \textbf{Bilaterální filtr (Bilateral Filter)}
+        \newline Bilaterální filtr je pokročilejší metoda, která zachovává hrany, zatímco snižuje šum \cite{gonzalez2018digital}. Oproti Gaussovskému filtru lépe rozpoznává rozdíly mezi objekty a zachovává detaily obličeje.
+    \end{enumerate}
+\end{enumerate}
+V aplikaci FaceDemo je pro předzpracování snímků z kamery využíván výhradně \textbf{Gaussovský filtr} (\texttt{GaussianBlur}), a to před předáním snímku do detektoru obličejů ML Kit i do TFLite modelů. Ostatní filtry jsou součástí obecného teoretického přehledu, v projektu však nasazeny nejsou.
+\section{Detekce hran a zvýraznění rysů}
+Detekce hran je klíčovou součástí zpracování obrazu, protože umožňuje extrahovat důležité struktury z obrazu, jako jsou obrysy objektů, změny v intenzitě a další rysy důležité pro analýzu \cite{gonzalez2018digital}. Zvýraznění rysů pomáhá algoritmům pro rozpoznávání obrazu lépe rozlišovat mezi různými objekty a snižuje množství nepotřebných informací.
+\begin{enumerate}
+    \item \textbf{Principy detekce hran}
+    \newline Hranou v obraze se obvykle rozumí oblast, kde dochází k významné změně jasu nebo barevné intenzity \cite{gonzalez2018digital}. Tyto změny jsou identifikovány pomocí gradientu, což je matematická míra změny intenzity obrazu v určitém směru.
+    Matematicky lze gradient reprezentovat jako parciální derivace intenzity obrazu I(x, y) podle souřadnic x a y: 
+    \begin{equation}
+        G_x = \frac{∂I}{∂x}, G_y= \frac{∂I}{∂y} 
+    \end{equation}
+    Celková velikost gradientu (hrana) se pak vypočítá jako:
+    \begin{equation}
+        G = \sqrt{G_x^2 + G_y^2}
+    \end{equation}
+    Směr hrany je dán úhlem:
+    \begin{equation}
+        \theta = tan^{-1}(\frac{G_y}{G_x})
+    \end{equation}
+    \item \textbf{Metody detekce hran}
+    \begin{enumerate}
+        \item \textbf{Sobelův filtr}
+        \newline Sobelův filtr je metoda založená na výpočtu gradientu obrazu pomocí konvoluce s následujícími jádry (kernel) \cite{gonzalez2018digital}:
+\noindent
+\begin{minipage}{0.48\linewidth}
+\begin{align}
+G_x &= \begin{bmatrix}
+-1 & 0 & 1 \\
+-2 & 0 & 2 \\
+-1 & 0 & 1
+\end{bmatrix}
+\end{align}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\linewidth}
+\begin{align}
+G_y &= \begin{bmatrix}
+-1 & -2 & -1 \\
+0 & 0 & 0 \\
+1 & 2 & 1
+\end{bmatrix}
+\end{align}
+\end{minipage}
+
+
+
+    \item \textbf{Prewittův filtr}
+    \newline Prewittův filtr je podobný Sobelově metodě, ale používá jiné konvoluční matice \cite{gonzalez2018digital}:
+\begin{align}
+G_x &= \begin{bmatrix}
+-1 & 0 & 1 \\
+-1 & 0 & 1 \\
+-1 & 0 & 1
+\end{bmatrix} \\
+G_y &= \begin{bmatrix}
+-1 & -1 & -1 \\
+0 & 0 & 0 \\
+1 & 1 & 1
+\end{bmatrix}
+\end{align}
+
+Použití Prewittova filtru je téměř totožné se Sobelovým filtrem.
+    \item \textbf{Cannyho detektor hran}
+    \newline Cannyho metoda je pokročilejší technika detekce hran \cite{canny1986computational}, která kombinuje několik kroků:
+    \begin{itemize}
+        \item \textbf{Odstranění šumu} pomocí Gaussova rozostření.
+        \item \textbf{Výpočet gradientu} Sobelovým filtrem.
+        \item \textbf{Potlačení nesprávných hran} metodou non-maximum suppression.
+        \item \textbf{Použití prahování hysterézí} k odstranění slabých hran.
+    \end{itemize}
+
+    \end{enumerate}
+    \item \textbf{Zvýraznění rysů v obraze}
+    \newline Kromě detekce hran existují techniky, které pomáhají zvýraznit určité rysy obrazu \cite{gonzalez2018digital}:
+    \begin{itemize}
+        \item \textbf{Zvýšení kontrastu} pomocí histogramové ekvalizace.
+        \item \textbf{Ostré filtry} jako Laplaceova transformace.
+        \item \textbf{Gaborovy filtry} pro zvýraznění textur.
+    \end{itemize}
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.97\textwidth]{sobel_canny}
+    \caption{Výsledky detekce hran: Sobelův filtr a Cannyho detektor na stejném snímku \cite{img_sobel_canny}}
+    \label{fig:sobel_canny}
+\end{figure}
+
+\newpage
+\section{Konvoluční neuronové sítě}
+Konvoluční neuronové sítě (CNN) tvoří základ moderních systémů pro počítačové vidění \cite{lecun1998gradient, goodfellow2016deeplearning} a jsou klíčovou technologií, na níž je postaven detektor obličejů Google ML Kit využitý v aplikaci FaceDemo. CNN jsou typem hlubokých neuronových sítí speciálně navržených pro zpracování dat s prostorovou strukturou, jako jsou obrazy.
+
+Základní stavební jednotkou CNN je konvoluční vrstva, která aplikuje sadu trénovatelných filtrů (kernelů) na vstupní obraz \cite{goodfellow2016deeplearning}. Každý filtr detekuje specifický vzor – například hranu, roh nebo texturu. Výsledkem konvoluce je tzv. \textbf{feature mapa}, která zachycuje přítomnost daného vzoru v jednotlivých prostorových polohách obrazu.
+
+\begin{equation}
+    (I * K)(x, y) = \sum_{m} \sum_{n} I(x+m,\, y+n) \cdot K(m, n)
+\end{equation}
+kde \( I \) je vstupní obraz, \( K \) je konvoluční kernel a \( (x, y) \) jsou souřadnice výstupního pixelu.
+
+Za konvoluční vrstvou obvykle následuje nelineární aktivační funkce, nejčastěji \textbf{ReLU} (Rectified Linear Unit):
+\begin{equation}
+    f(x) = \max(0, x)
+\end{equation}
+Tato funkce zajišťuje nelinearitu sítě a umožňuje modelování složitých závislostí \cite{goodfellow2016deeplearning}. Poolingové vrstvy (nejčastěji max-pooling) redukují prostorové rozměry feature map, čímž snižují výpočetní nároky a zvyšují invariantnost vůči malým posunům \cite{lecun1998gradient}.
+
+Pro nasazení na mobilních zařízeních jsou klíčové architektury optimalizované pro nízkou výpočetní náročnost. \textbf{MobileNet} \cite{howard2017mobilenets} využívá tzv. depthwise separable convolutions – místo standardní konvoluce provádí nejprve konvoluci po jednotlivých kanálech (depthwise) a teprve poté lineární kombinaci výstupů (pointwise). Tím dosahuje výrazného snížení počtu operací při zachování srovnatelné přesnosti.
+
+Porovnání počtu operací standardní konvoluce a depthwise separable convolution pro vstup \( D_F \times D_F \times M \) (M kanálů, kernel \( D_K \times D_K \), N filtrů):
+\begin{equation}
+    \text{Standardní: } D_K^2 \cdot M \cdot N \cdot D_F^2
+\end{equation}
+\begin{equation}
+    \text{Depthwise separable: } D_K^2 \cdot M \cdot D_F^2 + M \cdot N \cdot D_F^2
+\end{equation}
+Poměr úspory je přibližně \( \frac{1}{N} + \frac{1}{D_K^2} \), pro typické hodnoty \( D_K=3 \) a \( N=256 \) jde o \(\approx 8\times\) méně operací.
+
+Trénování CNN probíhá metodou \textbf{zpětné propagace} (backpropagation) ve spojení s gradientovým sestupem \cite{goodfellow2016deeplearning}. Chybová funkce (loss) – typicky cross-entropy pro klasifikaci – je minimalizována úpravou vah sítě v každé iteraci:
+\begin{equation}
+    w \leftarrow w - \eta \cdot \frac{\partial \mathcal{L}}{\partial w}
+\end{equation}
+kde \( \eta \) je rychlost učení (\textit{learning rate}) a \( \mathcal{L} \) je hodnota chybové funkce. Google ML Kit využívá modely předtrénované na rozsáhlých datasetech tváří — v aplikaci FaceDemo jsou tyto modely použity přímo bez dalšího dotrénování (\textit{inference only}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.93\textwidth]{CNN}
+    \caption{Architektura konvoluční neuronové sítě -- konvoluční vrstvy, pooling a plně propojená vrstva \cite{img_cnn}}
+    \label{fig:cnn}
+\end{figure}
+
+\section{Detekce obličejových landmarků pomocí ML Kit}
+Aplikace FaceDemo využívá Google ML Kit Face Detection API \cite{googlemlkit2024} pro detekci a analýzu obličejů v reálném čase. ML Kit poskytuje předtrénovaný model optimalizovaný pro mobilní zařízení, který v jednom průchodu snímkem poskytuje:
+\begin{itemize}
+    \item \textbf{Ohraničující obdélník (bounding box)} – souřadnice oblasti, kde se nachází obličej.
+    \item \textbf{Obličejové landmarky} – přesné souřadnice klíčových bodů tváře: oči (středy a vnější rohy), nos, koutky úst, uši a lícní kosti.
+    \item \textbf{Euler angles} – orientace hlavy ve třech osách (pitch, yaw, roll).
+    \item \textbf{Klasifikace} – pravděpodobnost úsměvu (\texttt{smilingProbability}) a otevření očí (\texttt{leftEyeOpenProbability}, \texttt{rightEyeOpenProbability}).
+    \item \textbf{Sledovací identifikátor (trackingId)} – jedinečné číslo přidělené tváři, které je konzistentní napříč snímky a umožňuje sledování pohybu tváře bez opakovaného plného rozpoznávání.
+\end{itemize}
+
+Detektor je konfigurován v režimu \texttt{PERFORMANCE\_MODE\_FAST} pro maximální snímkový výkon, s povoleným \texttt{LANDMARK\_MODE\_ALL} a \texttt{CLASSIFICATION\_MODE\_ALL}. Sledování je zajištěno pomocí \texttt{enableTracking()}, přičemž přiřazení nového \texttt{trackingId} slouží jako první stupeň identifikace osoby před spuštěním výpočetně náročnějšího deskriptorového porovnání.
+
+ML Kit přiřazuje každé tváři \texttt{trackingId} – celočíselný identifikátor, který je konzistentní pro tutéž tvář napříč po sobě jdoucími snímky \cite{googlemlkit2024}. Jakmile tvář zmizí ze záběru a znovu se objeví, obdrží nové \texttt{trackingId}. Tato vlastnost umožňuje \textbf{dvoustupňové rozpoznávání}: nejprve rychlé vyhledání v cache podle \texttt{trackingId} (O(1)), teprve při jeho absenci výpočetně náročnější porovnání geometrického deskriptoru.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.87\textwidth]{ML_kit_Landmakrs}
+    \caption{Obličejové landmarky detekovány pomocí Google ML Kit -- klíčové body tváře \cite{img_mlkit_concepts}}
+    \label{fig:mlkit_landmarks}
+\end{figure}
+
+\section{Geometrický deskriptor tváře a rozpoznávání}
+\label{sec:descriptor}
+Na rozdíl od přístupů využívajících neuronové sítě pro generování embeddingů \cite{wang2021survey} (např. FaceNet \cite{schroff2015facenet}) aplikace FaceDemo implementuje vlastní metodu rozpoznávání na základě \textbf{geometrického deskriptoru} odvozeného ze souřadnic obličejových landmarků.
+
+\subsection{Výpočet deskriptoru}
+Vstupem jsou souřadnice \( n = 10 \) klíčových bodů tváře poskytnutých ML Kit. Postup výpočtu deskriptoru v třídě \texttt{FaceDescriptor}:
+\begin{enumerate}
+    \item \textbf{Normalizace souřadnic} – Všechny body jsou transformovány relativně ke středu očí a mezioční vzdálenosti, čímž je deskriptor invariantní vůči posunutí a změně měřítka:
+    \begin{equation}
+        \hat{p}_i = \frac{p_i - c_{\text{eyes}}}{d_{\text{eyes}}}
+    \end{equation}
+    kde \( c_{\text{eyes}} \) je střed úsečky spojující středy obou očí a \( d_{\text{eyes}} \) je jejich vzdálenost.
+    \item \textbf{Párové vzdálenosti} – Jsou vypočítány euklidovské vzdálenosti mezi všemi dvojicemi \( \binom{10}{2} = 45 \) landmarků. Tím vzniká vektor 45 hodnot zachycující geometrické proporce tváře.
+    \item \textbf{Normalizace úhlů hlavy} – Úhly yaw (\texttt{headEulerAngleY}) a roll (\texttt{headEulerAngleZ}) jsou normalizovány do rozsahu \([-1, 1]\) a přidány k vektoru jako další dvě složky.
+\end{enumerate}
+Výsledný deskriptor je vektor \textbf{konstantní délky 47 hodnot} (45 párových vzdáleností + 2 normalizované úhly hlavy), robustní vůči změnám polohy a měřítku obličeje v záběru.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{Geometric_descriptor}
+    \caption{Schéma geometrického deskriptoru tváře -- landmarky a párové vzdálenosti \cite{img_geom_desc}}
+    \label{fig:geom_descriptor}
+\end{figure}
+
+\subsection{Porovnávání deskriptorů}
+Pro porovnání dvou deskriptorů \( \mathbf{a} \) a \( \mathbf{b} \) je použita \textbf{kosinová podobnost}:
+\begin{equation}
+    \text{sim}(\mathbf{a}, \mathbf{b}) = \frac{\mathbf{a} \cdot \mathbf{b}}{\|\mathbf{a}\| \cdot \|\mathbf{b}\|}
+\end{equation}
+Hodnota leží v rozsahu \([-1, 1]\), přičemž vyšší hodnota znamená větší podobnost. Tvář je považována za rozpoznanou, pokud kosinová podobnost s nejlépe odpovídajícím uloženým deskriptorem překročí práh \( \theta = 0{,}82 \).
+
+Kosinová podobnost má oproti euklidovské vzdálenosti výhodu \textbf{invariantnosti vůči velikosti vektoru} \cite{goodfellow2016deeplearning} – dva deskriptory zachycující tutéž tvář ale lišící se v magnitudě (např. kvůli jiné míře osvětlení) budou mít stále vysokou kosinovou podobnost, zatímco euklidovská vzdálenost by je mohla nesprávně vyhodnotit jako rozdílné.
+
+\subsection{Adaptivní aktualizace deskriptoru}
+Uložené deskriptory jsou průběžně zpřesňovány pomocí \textbf{exponenciálně váženého klouzavého průměru (EMA)}:
+\begin{equation}
+    \mathbf{d}_{t} = (1 - \alpha)\,\mathbf{d}_{t-1} + \alpha\,\mathbf{d}_{\text{new}}
+\end{equation}
+kde \( \alpha = 0{,}15 \) znamená, že nový snímek přispívá 15\,\% váhou. Tím se uložený deskriptor postupně adaptuje na přirozené variace tváře (různé výrazy, osvětlení) bez ztráty stability.
+
+Aktualizace je spouštěna maximálně jednou za \texttt{descriptorUpdateIntervalMs = 800\,ms} na každé \texttt{trackingId}, aby se předešlo zbytečným zápisům při statické tváři.
+
+\section{Detekce objektů metodou YOLO}
+Pro detekci obecných objektů a bankovek využívá aplikace FaceDemo modely ve formátu TFLite postavené na architektuře \textbf{YOLO} (You Only Look Once) \cite{redmon2016yolo, redmon2018yolov3}.
+
+YOLO přistupuje k detekci objektů jako k jediné regresní úloze. Vstupní obraz je rozdělen do mřížky \( S \times S \) buněk. Každá buňka předpovídá \( B \) ohraničujících obdélníků, a to ve formě:
+\begin{itemize}
+    \item souřadnice středu \((x, y)\) relativně k buňce,
+    \item rozměry \((w, h)\) relativně k celému obrazu,
+    \item skóre jistoty (\texttt{confidence}), které reflektuje pravděpodobnost přítomnosti objektu a přesnost bounding boxu,
+    \item pravděpodobnosti tříd (pro COCO dataset: 80 tříd).
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{YOLO}
+    \caption{Architektura YOLO -- rozdělení obrazu do mřížky a predikce bounding boxů \cite{img_yolo_arch}}
+    \label{fig:yolo}
+\end{figure}
+
+\subsection{Non-Maximum Suppression}
+Protože YOLO generuje velké množství překrývajících se bounding boxů, je nutný post-processing pomocí \textbf{NMS (Non-Maximum Suppression)} \cite{redmon2016yolo}. Algoritmus:
+\begin{enumerate}
+    \item Seřadí všechny bounding boxy podle skóre jistoty.
+    \item Vybere box s nejvyšším skóre, označí ho jako výsledek.
+    \item Odstraní všechny ostatní boxy, jejichž \textbf{IoU} (Intersection over Union) s vybraným boxem překročí práh \( t_{\text{NMS}} = 0{,}45 \).
+    \item Opakuje kroky 2–3 pro zbývající boxy.
+\end{enumerate}
+
+\begin{equation}
+    \text{IoU}(A, B) = \frac{|A \cap B|}{|A \cup B|}
+\end{equation}
+
+\section{TensorFlow Lite a on-device inference}
+\textbf{TensorFlow Lite} (TFLite) je odlehčená verze frameworku TensorFlow určená pro nasazení modelů strojového učení na zařízeních s omezenými prostředky, jako jsou mobilní telefony nebo vestavěné systémy \cite{tensorflow2015whitepaper}. Vývoj a dokumentace TFLite jsou udržovány společností Google \cite{googlemlkit2024}.
+
+Hlavní vlastnosti TFLite relevantní pro aplikaci FaceDemo:
+\begin{itemize}
+    \item \textbf{Kompaktní runtime} – TFLite interpreter je optimalizován pro nízkou latenci a malou paměťovou stopu.
+    \item \textbf{Kvantizace modelů} – Pro snížení velikosti modelu a zrychlení inference lze využít kvantizaci: FP32 (standardní), FP16 (poloviční přesnost) nebo INT8 (celá čísla s 8 bity) \cite{tensorflow2015whitepaper}. Kvantizace INT8 může 4× snížit velikost modelu při minimální ztrátě přesnosti.
+    \item \textbf{Hardwarová akcelerace} – TFLite podporuje akceleraci přes NNAPI (Neural Networks API) na Androidu \cite{nnapi2024}, které umožňuje přesměrovat výpočty na dedikovaný NPU nebo GPU zařízení.
+    \item \textbf{On-device inference} – Veškeré výpočty probíhají přímo na zařízení bez nutnosti síťového připojení, čímž je zajištěna ochrana soukromí uživatele a nízká latence.
+\end{itemize}
+V aplikaci FaceDemo jsou pomocí TFLite spuštěny modely pro detekci obecných objektů (YOLO/COCO s třídami COCO datasetu) a specializovaný model pro detekci bankovek (\texttt{banknote\_detector.tflite}).
+
+Srovnání režimů kvantizace pro typický YOLO model (10\,MB FP32):
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Režim} & \textbf{Velikost} & \textbf{Přesnost (mAP)} & \textbf{Rychlost} \\
+\hline
+FP32  & 10 MB & 100\,\% (referenční) & pomalý \\
+FP16  & 5 MB  & \(\approx\) 99\,\%   & 1,5--2\(\times\) rychlejší \\
+INT8  & 2,5 MB & \(\approx\) 96--98\,\% & 2--4\(\times\) rychlejší \\
+\hline
+\end{tabular}
+\caption{Srovnání kvantizačních režimů TFLite}
+\label{tab:quantization}
+\end{table}
+
+\section{CameraX – přístup ke kameře na Androidu}
+\textbf{CameraX} je součást Android Jetpack \cite{camerax2024}, která poskytuje jednotné a životním cyklem aktivity řízené API pro přístup ke kameře mobilního zařízení. Oproti staršímu Camera2 API výrazně zjednodušuje práci s kamerou a zajišťuje kompatibilitu napříč zařízeními s různými verzemi Androidu a různým hardware.
+
+CameraX rozlišuje tři základní \textbf{use cases}:
+\begin{itemize}
+    \item \textbf{Preview} – zobrazuje živý obraz z kamery do \texttt{PreviewView} widgetu. Zajišťuje správné škálování a rotaci snímku pro zobrazení.
+    \item \textbf{ImageAnalysis} – poskytuje kontinuální proud snímků pro zpracování na pozadí. Každý snímek je dodán jako \texttt{ImageProxy} ve formátu \texttt{YUV\_420\_888} a musí být po zpracování explicitně uvolněn.
+    \item \textbf{ImageCapture} – zajišťuje zachytávání vysokorozlišených fotografií.
+\end{itemize}
+
+Aplikace FaceDemo využívá use cases \textbf{Preview} a \textbf{ImageAnalysis} ve výchozím rozlišení 1280\,×\,720. Pipeline je vázána na životní cyklus aktivity (\texttt{bindToLifecycle}), čímž je zajištěno automatické uvolnění zdrojů při pozastavení nebo ukončení aktivity.
+
+Snímky z \texttt{ImageAnalysis} jsou ve formátu \textbf{YUV\_420\_888}, kde jasová složka (Y) je uložena v plném rozlišení a chrominanční složky (U, V) jsou podvzorkovány na poloviční rozlišení. Pro zpracování pomocí ML Kit je snímek nejprve převeden na \texttt{Bitmap} prostřednictvím třídy \texttt{NV21ToBitmap} – interní konverzí přes NV21 bajtové pole.
+
+Klíčovým aspektem je strategie \texttt{STRATEGY\_KEEP\_ONLY\_LATEST} – pokud analyzátor nestíhá zpracovat snímky v reálném čase, starší snímky jsou zahozeny a zpracovává se vždy jen nejnovější. To zabraňuje hromadění snímků ve frontě a nárůstu latence.
+
+\section{Šifrování biometrických dat – AES-256}
+Biometrická data, jako jsou geometrické deskriptory obličejů, jsou citlivými osobními údaji ve smyslu GDPR \cite{gdpr2016}. Aplikace FaceDemo proto ukládá databázi identifikovaných osob pomocí \textbf{EncryptedSharedPreferences} – součásti knihovny Android Jetpack Security \cite{androidkeystore2024}.
+
+\textbf{AES} (Advanced Encryption Standard) je symetrická bloková šifra standardizovaná NIST v roce 2001 \cite{nist2001aes}. Varianta AES-256 používá klíč délky 256 bitů a je považována za odolnou vůči hrubé síle i pro citlivé aplikace. Šifrování probíhá v blocích po 128 bitech v jednom ze standardizovaných módů (nejčastěji CBC nebo GCM).
+
+EncryptedSharedPreferences transparentně šifruje jak klíče, tak hodnoty všech uložených dat. Šifrovací klíč je bezpečně uložen v \textbf{Android Keystore} \cite{androidkeystore2024} – hardwarovém úložišti klíčů chráněném čipem zařízení. Přístup k datům bez znalosti klíče ani fyzický přístup k úložišti souboru nevede k dešifrování obsahu.
+
+V aplikaci FaceDemo je pomocí EncryptedSharedPreferences uložena celá databáze tváří – každý záznam obsahuje jméno osoby, geometrický deskriptor serializovaný jako CSV řetězec, časové razítko a seznam přiřazených \texttt{trackingId}. Data jsou dostupná výhradně v rámci dané aplikace a nikdy neopouštějí zařízení.
+
+Šifrování klíčů používá \textbf{AES-256-SIV} (Synthetic IV), šifrování hodnot \textbf{AES-256-GCM} (Galois/Counter Mode). GCM mod zajišťuje nejen důvěrnost, ale i integritu dat – jakákoliv manipulace s uloženým souborem způsobí selhání dešifrování.
+
+\section{COCO dataset pro detekci objektů}
+\textbf{COCO} (Common Objects in Context) je rozsáhlá veřejná datová sada pro počítačové vidění, která obsahuje více než 330 000 anotovaných obrazů s 80 kategoriemi běžných objektů – například osoby, vozidla, zvířata, nábytek nebo elektroniku \cite{lin2014coco}. COCO se stal de-facto standardem pro trénování a evaluaci modelů detekce objektů.
+
+Modely trénované na COCO datasetu jsou schopné rozpoznávat objekty v kontextu reálného světa s vysokou robustností vůči variabilitě osvětlení, úhlů pohledu a překrytí. YOLO a SSD architektury trénované na COCO dosahují v reálném čase příznivého poměru přesnosti a rychlosti.
+
+Aplikace FaceDemo využívá TFLite model (YOLO architektura) trénovaný na COCO datasetu pro detekci obecných objektů ve scéně. Model rozlišuje 80 standardních tříd a prahová jistota detekce je nastavena na 0,45.
+
+\newpage
+\chapter{Struktura a uživatelské rozhraní aplikace}
+\label{chap:ui}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{Application_Diagram}
+    \caption{Architektura aplikace FaceDemo -- vlastní zpracování}
+    \label{fig:app_diagram}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{Figures/diagram_workflow}
+    \caption{Kompletní architektura a workflow aplikace FaceDemo}
+    \label{fig:workflow}
+\end{figure}
+
+Uživatelské rozhraní aplikace FaceDemo bylo navrženo s důrazem na jednoduchost a funkčnost při práci s živým obrazem kamery. Celá obrazovka je využita pro zobrazení náhledu kamery, přičemž ovládací prvky jsou umístěny tak, aby nepřekrývaly sledovanou scénu. Aplikace je implementována jako jedna hlavní aktivita (\texttt{MainActivity}) s pomocnými aktivitami pro galerii (\texttt{GalleryActivity}, \texttt{PhotoDetailActivity}) a nastavení (\texttt{SettingsActivity}).
+
+\section{Hlavní obrazovka}
+Po spuštění aplikace je zobrazena hlavní obrazovka, jejíž středem je widget \textbf{PreviewView} zobrazující živý obraz z kamery ve fullscreen režimu. Nad tímto náhledem jsou vrstveny tři transparentní překryvné vrstvy (\textbf{overlay}):
+\begin{itemize}
+    \item \textbf{FaceOverlay} – zobrazuje výsledky detekce a rozpoznávání obličejů (bounding boxy, jména, statistiky úsměvu a očí, landmarky).
+    \item \textbf{ObjectDetectionOverlay} – zobrazuje výsledky YOLO/COCO detekce jako oranžové rámečky s popisky tříd.
+    \item \textbf{BanknoteOverlay} – zobrazuje výsledky detektoru bankovek jako zelené rámečky.
+\end{itemize}
+
+Ve spodní části obrazovky je horizontální navigační menu implementované jako \textbf{RecyclerView} s kruhovými ikonami. Volitelně lze zobrazit debug panel s průběžnými logy aplikace, který se aktivuje v nastavení.
+
+Dotyk na oblast detekovaného obličeje otevře dialog pro zadání jména osoby, čímž je obličej přidán do databáze a při dalším výskytu automaticky rozpoznán.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{screenshot_main_screen}
+    \caption{Hlavní obrazovka aplikace FaceDemo -- aktivní detekce obličejů a overlay vrstvy}
+    \label{fig:screenshot_main}
+\end{figure}
+
+\section{Navigační menu}
+Navigační menu umístěné ve spodní části obrazovky obsahuje deset přepínačů a akcí:
+\begin{itemize}
+    \item \textbf{Settings} – otevře obrazovku \texttt{SettingsActivity} s konfigurací detekce a správou dat.
+    \item \textbf{Camera} – přepne mezi přední a zadní kamerou (\texttt{toggleCamera()}).
+    \item \textbf{Smile} – přepíná zobrazení pravděpodobnosti úsměvu u detekovaných tváří.
+    \item \textbf{Eyes} – přepíná zobrazení pravděpodobnosti otevření očí.
+    \item \textbf{Face} – aktivuje nebo deaktivuje celou detekci obličejů.
+    \item \textbf{Landmarks} – přepíná vizualizaci obličejových landmarků (oči, nos, ústa, uši, lícní kosti).
+    \item \textbf{Capture} – zachytí aktuální obraz včetně všech aktivních překryvných vrstev a uloží jako JPEG; poté otevře galerii.
+    \item \textbf{Gallery} – otevře \texttt{GalleryActivity} se mřížkou zachycených fotografií.
+    \item \textbf{Objects} – zapíná nebo vypíná YOLO/COCO detekci obecných objektů.
+    \item \textbf{Banknote} – zapíná nebo vypíná specializovaný detektor bankovek.
+\end{itemize}
+Aktivní přepínače jsou vizuálně odlišeny modrým pozadím ikony. Přepínání stavu probíhá okamžitě a projeví se na overlay vrstvách bez nutnosti restartu kamery.
+
+\section{Obrazovka nastavení}
+Aktivita \texttt{SettingsActivity} poskytuje konfiguraci chování detekce:
+\begin{itemize}
+    \item \textbf{Debug Mode} – zapíná in-app debug panel s časovými razítky a logy klíčových operací.
+    \item \textbf{Clear Names} – smaže všechna uložená jména a deskriptory z \texttt{EncryptedSharedPreferences} i in-memory cache.
+\end{itemize}
+Nastavení jsou persistentně uložena v \texttt{SharedPreferences} pod klíčem \texttt{"detection\_settings"}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{screenshot_settings}
+    \caption{Obrazovka nastavení aplikace FaceDemo -- \texttt{SettingsActivity}}
+    \label{fig:screenshot_settings}
+\end{figure}
+
+\section{Galerie}
+\texttt{GalleryActivity} zobrazuje mřížku (\texttt{GridView}) všech zachycených fotografií uložených na zařízení. Náhledy jsou dekódovány s redukcí rozlišení pomocí \texttt{BitmapFactory.Options.inSampleSize} a cachovány v \texttt{LruCache} pro plynulé rolování. Kliknutí na fotografii otevře \texttt{PhotoDetailActivity} se zobrazením v plném rozlišení a možností smazání. Dlouhý stisk v mřížce fotografii smaže přímo.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{screenshot_gallery}
+    \caption{Galerie zachycených snímků -- \texttt{GalleryActivity} s mřížkou fotografií}
+    \label{fig:screenshot_gallery}
+\end{figure}
+
+\section{Souřadnicová transformace překryvných vrstev}
+Klíčovým technickým aspektem UI je správné mapování souřadnic z prostoru snímku ML Kit nebo TFLite do souřadnic View překryvné vrstvy. Snímek má jiné rozměry než zobrazený náhled (kvůli škálování a ořezu) a přední kamera navíc produkuje horizontálně zrcadlený obraz.
+
+Transformace zahrnuje výpočet \textbf{scale} faktoru a \textbf{offsetů} pro osy X a Y:
+\begin{equation}
+    x_{\text{view}} = x_{\text{img}} \cdot \text{scale} + \text{offsetX}
+\end{equation}
+\begin{equation}
+    y_{\text{view}} = y_{\text{img}} \cdot \text{scale} + \text{offsetY}
+\end{equation}
+Pro přední kameru je souřadnice X navíc horizontálně zrcadlena:
+\begin{equation}
+    x_{\text{view}} = \text{viewWidth} - x_{\text{view}}
+\end{equation}
+Transformační parametry jsou přepočítávány při každé změně kamery nebo orientace zařízení.
+
+\chapter{Implementace klíčových algoritmů}
+\label{chap:impl}
+Tato kapitola popisuje konkrétní implementaci hlavních algoritmů aplikace FaceDemo. Zaměřuje se na kamerový pipeline, detekci a rozpoznávání obličejů, detekci obecných objektů a bankovek a správu dat.
+
+\section{Kamerový pipeline – CameraX}
+Vstupem pro všechny algoritmy je kontinuální proud snímků z kamery zařízení. Při spuštění aktivity metoda \texttt{startCamera()} inicializuje CameraX pipeline se dvěma use cases:
+\begin{itemize}
+    \item \textbf{Preview} – napojený na \texttt{PreviewView} pro živé zobrazení obrazu.
+    \item \textbf{ImageAnalysis} – analyzátor snímků spuštěný v dedikovaném vláknu; výchozí rozlišení 1280\,×\,720.
+\end{itemize}
+Pipeline je vázána na životní cyklus aktivity. Každý snímek dorazí jako \texttt{ImageProxy} ve formátu \texttt{YUV\_420\_888}, který třída \texttt{NV21ToBitmap} převádí na \texttt{Bitmap} s případnou rotací dle hodnoty \texttt{imageProxy.imageInfo.rotationDegrees}.
+
+Přepnutí kamery voláním \texttt{toggleCamera()} ověří dostupnost požadované čočky a celou pipeline restartuje s novou \texttt{CameraSelector}.
+
+Klíčovým implementačním rozhodnutím je volba strategie \texttt{STRATEGY\_KEEP\_ONLY\_LATEST}: pokud analyzátor nestíhá zpracovat snímky v reálném čase, starší snímky jsou automaticky zahazovány a zpracovává se vždy jen nejnovější. Bez této strategie by se snímky hromadily ve frontě a latence by rostla po celou dobu běhu aplikace.
+
+\begin{lstlisting}[language=Kotlin, caption={Inicializace CameraX pipeline v \texttt{startCamera()}}, label=lst:camerax]
+val imageAnalysis = ImageAnalysis.Builder()
+    .setTargetResolution(Size(1280, 720))
+    .setBackpressureStrategy(
+        ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+    .build()
+
+imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
+    val mediaImage = imageProxy.image ?: return@setAnalyzer
+    updateOverlayTransforms(mediaImage, imageProxy.imageInfo.rotationDegrees)
+    val bitmap = nv21ToBitmap.convertNV21(mediaImage)
+    val rotated = nv21ToBitmap.rotate(
+        bitmap, imageProxy.imageInfo.rotationDegrees)
+    processFrame(rotated)
+    imageProxy.close()    // nutne uvolnit ImageProxy!
+}
+\end{lstlisting}
+
+Snímky ve formátu \texttt{YUV\_420\_888} jsou před předáním do ML Kit a TFLite převedeny na \texttt{Bitmap} pomocí třídy \texttt{NV21ToBitmap}. Konverze probíhá přes mezistupeň NV21 – nativní formát výstupu Android kamery – který lze efektivně dekódovat prostřednictvím \texttt{YuvImage.compressToJpeg()}. Rotace snímku je nutná, protože Android kamery vrací obraz v nativní orientaci senzoru, nikoliv v orientaci displeje.
+
+\begin{lstlisting}[language=Kotlin, caption={Konverze \texttt{YUV\_420\_888} na \texttt{Bitmap} a rotace}, label=lst:yuv]
+fun convertNV21(mediaImage: Image): Bitmap {
+    val nv21 = yuv420888ToNv21(mediaImage)
+    val yuvImage = YuvImage(
+        nv21, ImageFormat.NV21, mediaImage.width, mediaImage.height, null)
+    val out = ByteArrayOutputStream()
+    yuvImage.compressToJpeg(
+        Rect(0, 0, mediaImage.width, mediaImage.height), 100, out)
+    return BitmapFactory.decodeByteArray(out.toByteArray(), 0, out.size())
+}
+
+fun rotate(bitmap: Bitmap, degrees: Int): Bitmap {
+    if (degrees == 0) return bitmap
+    val matrix = Matrix().apply { postRotate(degrees.toFloat()) }
+    return Bitmap.createBitmap(bitmap, 0, 0,
+        bitmap.width, bitmap.height, matrix, true)
+}
+\end{lstlisting}
+
+\section{Detekce obličejů}
+\textbf{FaceDetector} z Google ML Kit je konfigurován s parametry:
+\begin{itemize}
+    \item \texttt{PERFORMANCE\_MODE\_FAST} – upřednostňuje rychlost pro real-time zpracování.
+    \item \texttt{LANDMARK\_MODE\_ALL} – detekuje všechny dostupné obličejové landmarky.
+    \item \texttt{CLASSIFICATION\_MODE\_ALL} – poskytuje \texttt{smilingProbability} a \texttt{leftEyeOpenProbability} / \texttt{rightEyeOpenProbability}.
+    \item \texttt{enableTracking()} – přiřazuje konzistentní \texttt{trackingId} každé tváři napříč snímky.
+\end{itemize}
+Vstupem detektoru je \texttt{InputImage} vytvořený z \texttt{Bitmap} snímku. Výsledkem jsou objekty třídy \texttt{Face} obsahující bounding box, landmarky, Euler angles a klasifikační skóre. Výsledky jsou předány do \texttt{FaceOverlay} pro vizualizaci a do modulu rozpoznávání pro identifikaci.
+
+Režim \texttt{PERFORMANCE\_MODE\_FAST} byl zvolen záměrně před \texttt{ACCURACY} – v reálném čase je plynulost důležitější než marginální přírůstek přesnosti detekce.
+
+\begin{lstlisting}[language=Kotlin, caption={Konfigurace ML Kit \texttt{FaceDetector}}, label=lst:facedetector]
+val options = FaceDetectorOptions.Builder()
+    .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+    .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
+    .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+    .enableTracking()
+    .build()
+val detector = FaceDetection.getClient(options)
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{Face_detection1}
+    \caption{Detekce obličejů -- bounding boxy, landmarky, zavřené oči a úsměv}
+    \label{fig:screenshot_facedetect}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{Face_detection2}
+    \caption{Detekce obličejů -- landmarky s jedním zavřeným okem a vyhodnocením \texttt{eyeOpenProbability}}
+    \label{fig:screenshot_facedetect2}
+\end{figure}
+
+\section{Dvoustupňové rozpoznávání obličejů}
+Rozpoznávání probíhá ve dvou stupních optimalizovaných pro minimální latenci:
+
+\subsection{Stupeň 1 – Rychlé vyhledání přes trackingId}
+\texttt{FaceIdentificationManager.findFaceByTrackingId()} prohledá in-memory mapu \texttt{trackingId → SavedFaceData}. Jde o operaci O(1), která nevyžaduje výpočet deskriptoru a umožňuje plynulé zobrazení jména bez prodlevy při každém snímku.
+
+\subsection{Stupeň 2 – Deskriptorové rozpoznání}
+Pokud tvář není v cache (nová tvář nebo ztracený \texttt{trackingId}), spustí se \texttt{FaceDescriptor.compute(face)}, který vypočítá geometrický deskriptor (47 hodnot – viz sekci~\ref{sec:descriptor} o geometrickém deskriptoru). Deskriptor je porovnán se všemi uloženými záznamy pomocí kosinové podobnosti; práh je 0,82.
+
+Aby nedošlo k přetížení systému, je deskriptorové rozpoznání pro každé \texttt{trackingId} spouštěno nejvýše jednou za \texttt{recognizeIntervalMs = 200\,ms}. Uložené deskriptory jsou průběžně aktualizovány pomocí EMA (\(\alpha = 0{,}15\)) s intervalem \texttt{descriptorUpdateIntervalMs = 800\,ms}.
+
+Kritickým krokem ve výpočtu deskriptoru je normalizace souřadnic vůči mezioční vzdálenosti – bez ní by deskriptor závisel na vzdálenosti tváře od kamery a rozpoznávání by selhávalo při pohybu uživatele.
+
+\begin{lstlisting}[language=Kotlin, caption={Výpočet geometrického deskriptoru ve \texttt{FaceDescriptor.compute()}}, label=lst:descriptor]
+val cx = (leftEye.x + rightEye.x) / 2f
+val cy = (leftEye.y + rightEye.y) / 2f
+val eyeDist = hypot((rightEye.x - leftEye.x).toDouble(),
+                    (rightEye.y - leftEye.y).toDouble()).toFloat()
+if (eyeDist < 1f) return null
+
+val points = LANDMARK_TYPES.mapNotNull { type ->
+    face.getLandmark(type)?.position?.let { p ->
+        floatArrayOf((p.x - cx) / eyeDist, (p.y - cy) / eyeDist)
+    } ?: floatArrayOf(0f, 0f)
+}
+
+val distances = mutableListOf<Float>()
+for (i in points.indices)
+    for (j in (i + 1) until points.size) {
+        val dx = points[i][0] - points[j][0]
+        val dy = points[i][1] - points[j][1]
+        distances.add(hypot(dx.toDouble(), dy.toDouble()).toFloat())
+    }
+
+val yaw  = (face.headEulerAngleY / 90f).coerceIn(-1f, 1f)
+val roll = (face.headEulerAngleZ / 90f).coerceIn(-1f, 1f)
+return (distances + listOf(yaw, roll)).toFloatArray()
+\end{lstlisting}
+
+Kosinová podobnost je preferována před euklidovskou vzdáleností, protože je invariantní vůči magnitudě vektoru. Dva deskriptory téže tváře pořízené za různého osvětlení se mohou lišit v magnitudě, ale jejich směr zůstane shodný – kosinová podobnost to správně vyhodnotí, euklidovská vzdálenost by je označila jako různé.
+
+\begin{lstlisting}[language=Kotlin, caption={Kosinová podobnost a rozpoznávání v databázi}, label=lst:cosine]
+fun similarity(a: FloatArray, b: FloatArray): Float {
+    var dot = 0f; var normA = 0f; var normB = 0f
+    for (i in a.indices) {
+        dot += a[i] * b[i]; normA += a[i] * a[i]; normB += b[i] * b[i]
+    }
+    val denom = sqrt(normA) * sqrt(normB)
+    return if (denom < 1e-6f) 0f else dot / denom
+}
+
+fun recognizeByDescriptor(
+    descriptor: FloatArray, threshold: Float = 0.82f
+): Pair<SavedFaceData, Float>? =
+    loadAllFaces()
+        .mapNotNull { face ->
+            face.descriptor?.let { d ->
+                val score = similarity(descriptor, d)
+                if (score >= threshold) Pair(face, score) else null
+            }
+        }
+        .maxByOrNull { it.second }
+\end{lstlisting}
+
+EMA aktualizace průběžně zpřesňuje uložený deskriptor bez ztráty stability. Hodnota \(\alpha = 0{,}15\) zajišťuje, že každý nový snímek přispívá jen 15\,\% váhou – deskriptor se pomalu adaptuje na přirozené změny tváře (výrazy, stárnutí, osvětlení), aniž by byl destabilizován jednorázovým špatným snímkem.
+
+\begin{lstlisting}[language=Kotlin, caption={EMA aktualizace uloženého deskriptoru}, label=lst:ema]
+fun updateDescriptor(
+    faceId: String, newDescriptor: FloatArray, alpha: Float = 0.15f
+) {
+    val existing = findFaceById(faceId)?.descriptor ?: return
+    val updated = FloatArray(existing.size) { i ->
+        (1f - alpha) * existing[i] + alpha * newDescriptor[i]
+    }
+    saveFaceDescriptor(faceId, updated)
+}
+\end{lstlisting}
+
+\subsection{Uložení nové tváře}
+Pokud uživatel klikne na bounding box neidentifikované tváře, zobrazí se dialog pro zadání jména. Po potvrzení metoda \texttt{persistFaceName()} uloží jméno a aktuální deskriptor do \texttt{FaceIdentificationManager} – a tedy do \texttt{EncryptedSharedPreferences} (AES-256).
+
+\subsection{Vizualizace v FaceOverlay}
+\texttt{FaceOverlay} vykresluje pro každou detekovanou tvář:
+\begin{itemize}
+    \item \textbf{Žlutý rámeček} – neidentifikovaná tvář (kliknutím lze zadat jméno).
+    \item \textbf{Zelený rámeček + jméno} – identifikovaná tvář.
+    \item Procentuální hodnoty úsměvu a stavu očí (pokud jsou povoleny v nastavení).
+    \item Obličejové landmarky jako tečky s popisky (pokud je povoleno).
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{Face_recognition1}
+    \caption{Rozpoznávání obličejů -- identifikovaná tvář se zeleným rámečkem a jménem}
+    \label{fig:screenshot_facerecog}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{Face_recogntion2}
+    \caption{Rozpoznávání obličejů -- landmarky, pravděpodobnost úsměvu a stav očí zobrazeny současně}
+    \label{fig:screenshot_facerecog2}
+\end{figure}
+
+\section{Detekce obecných objektů – YOLO/COCO}
+Třída \texttt{ObjectDetector} obaluje TFLite interpreter pro YOLO model trénovaný na COCO datasetu. Model je načten ze složky \texttt{assets/} – prioritně \texttt{yolo\_coco\_float32\_float32.tflite}. Detekce je spouštěna na pozadí s intervalem \texttt{objectDetectionIntervalMs = 120\,ms}.
+
+Inference probíhá nad \texttt{Bitmap} snímkem vstupní velikosti odvozené z tensoru modelu. Výstupem je seznam bounding boxů s třídou a skóre jistoty. Na výstup je aplikováno NMS s prahem IoU 0,45 a prahem jistoty 0,45. Výsledky jsou předány do \texttt{ObjectDetectionOverlay} jako oranžové rámečky s popisky.
+
+Přidání \texttt{NnApiDelegate()} přesměruje výpočty na NPU nebo GPU zařízení, čímž se sníží zátěž CPU a prodlouží výdrž baterie při kontinuální detekci. Model je načítán přes \texttt{MappedByteBuffer} – přímé mapování souboru do paměti bez kopírování dat.
+
+\begin{lstlisting}[language=Kotlin, caption={Inicializace TFLite interpreteru s NNAPI akcelerací}, label=lst:tflite]
+private fun loadModelFile(assetName: String): MappedByteBuffer {
+    val fd = context.assets.openFd(assetName)
+    return FileInputStream(fd.fileDescriptor).channel.map(
+        FileChannel.MapMode.READ_ONLY, fd.startOffset, fd.declaredLength)
+}
+
+val options = Interpreter.Options().apply {
+    addDelegate(NnApiDelegate())
+    setNumThreads(4)
+}
+val interpreter = Interpreter(
+    loadModelFile("yolo_coco_float32_float32.tflite"), options)
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{YOLO1}
+    \caption{Detekce obecných objektů -- YOLO/COCO model s oranžovými bounding boxy}
+    \label{fig:screenshot_yolo}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{YOLO2}
+    \caption{Detekce obecných objektů -- YOLO/COCO, druhý scénář s více detekovanými třídami}
+    \label{fig:screenshot_yolo2}
+\end{figure}
+
+\section{Detekce bankovek}
+Třída \texttt{BanknoteDetector} je specializovaná verze detektoru pro model \texttt{banknote\_detector.tflite}. Podporuje stejné výstupní formáty (YOLO/SSD). Detekce je spouštěna s intervalem 200\,ms a výsledky jsou zobrazeny v \texttt{BanknoteOverlay} jako zelené rámečky. Třídy modelu jsou načítány ze souboru \texttt{banknote\_labels.txt}; pokud soubor neexistuje, jsou použity zástupné názvy \texttt{Class\_0}, \texttt{Class\_1}, \ldots
+
+\section{Správa databáze tváří}
+\texttt{FaceIdentificationManager} zajišťuje persistenci dat v \texttt{EncryptedSharedPreferences} s AES-256 šifrováním. Každý záznam (\texttt{SavedFaceData}) obsahuje:
+\begin{itemize}
+    \item \texttt{faceId} – unikátní identifikátor ve formátu \texttt{“face\_<timestamp>”}.
+    \item \texttt{name} – jméno zadané uživatelem.
+    \item \texttt{descriptorCsv} – geometrický deskriptor serializovaný jako CSV.
+    \item \texttt{trackingIds} – seznam přiřazených ML Kit trackingId.
+    \item \texttt{firstSeen}, \texttt{lastSeen} – časová razítka.
+\end{itemize}
+In-memory cache zajišťuje O(1) přístup bez opakovaného parsování JSON. Operace smazání (\texttt{deleteAllFaces()}) probíhá synchronně, aby byl stav konzistentní při návratu ze \texttt{SettingsActivity}.
+
+Šifrovací klíč je uložen v Android Keystore a nikdy neopustí hardware zařízení – ani fyzický přístup k souboru s daty proto neumožňuje dešifrování obsahu. Klíče jsou šifrovány schématem AES-256-SIV, hodnoty AES-256-GCM, který navíc zaručuje integritu dat.
+
+\begin{lstlisting}[language=Kotlin, caption={Inicializace \texttt{EncryptedSharedPreferences} s Android Keystore}, label=lst:encprefs]
+val masterKey = MasterKey.Builder(context)
+    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+    .build()
+
+val encryptedPrefs = EncryptedSharedPreferences.create(
+    context,
+    "face_database",
+    masterKey,
+    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+)
+
+encryptedPrefs.edit()
+    .putString("face_${faceId}", serializedDescriptor)
+    .apply()
+\end{lstlisting}
+
+
+\section{Zachytávání obrazovky a galerie}
+Metoda \texttt{captureScreen()} v \texttt{MainActivity} složí výsledný \texttt{Bitmap} z náhledu kamery a všech tří aktivních překryvných vrstev. Kompozice probíhá na \texttt{Canvas} o rozměrech View a výsledek je uložen přes \texttt{CaptureManager.saveScreenCapture()} jako JPEG (kvalita 95\,\%) do adresáře \texttt{face\_captures/}. Po uložení se automaticky otevře \texttt{GalleryActivity}.
+
+\texttt{GalleryAdapter} cachuje náhledy fotografií v \texttt{LruCache} (velikost \(\frac{1}{8}\) dostupné paměti) a dekóduje je s \texttt{inSampleSize} pro zabránění OOM chybám.
+
+\chapter{Závěr}
+Tato bakalářská práce se zaměřila na návrh, vývoj a testování mobilní aplikace FaceDemo pro platformu Android. Aplikace je implementována v jazyce Kotlin s využitím Google ML Kit, TensorFlow Lite a CameraX. Hlavním cílem bylo vytvořit systém schopný detekovat a rozpoznávat obličeje v reálném čase na základě geometrických deskriptorů landmarků, dále detekovat obecné objekty pomocí YOLO/COCO modelu a specializovaný model bankovek – vše s důrazem na rychlost, stabilitu a ochranu biometrických dat uložených šifrovaně přímo na zařízení.
+
+Aplikace naplnila všechny stanovené požadavky. Běží stabilně a umožňuje detekovat a rozpoznávat obličeje, detekovat obecné objekty i bankovky přímo na zařízení bez nutnosti internetového připojení. Biometrická data jsou šifrována pomocí AES-256 v EncryptedSharedPreferences. Díky optimalizovaným TFLite modelům a efektivnímu dvoustupňovému rozpoznávání dosahuje aplikace dobré výkonnosti i na zařízeních střední třídy.
+\section{Výběr technologií}
+Pro realizaci aplikace byl zvolen nativní Android vývoj v jazyce Kotlin jako nejlepší volba pro přímou integraci CameraX, ML Kit a TFLite bez přechodových vrstev. Alternativní přístupy jako Flutter, React Native nebo Kivy by přinesly overhead při předávání obrazových dat mezi vrstvami, čímž by se zvýšila latence při zpracování v reálném čase. Nativní Android přístup umožnil přímou kontrolu nad kamerovým pipeline, správou paměti a využitím NNAPI pro hardwarovou akceleraci inference.
+\section{Srovnání s existujícími řešeními}
+Aplikace byla rovněž srovnána s několika současnými nástroji dostupnými na trhu:
+\begin{itemize}
+    \item \textbf{Google Lens} nabízí široké možnosti rozpoznávání objektů, textu a překladů, ale spoléhá se na cloudové služby, což může být nevýhodou z hlediska ochrany soukromí. Moje aplikace funguje plně offline.
+    \item \textbf{Microsoft Seeing AI} poskytuje asistivní funkce pro nevidomé, včetně čtení textu či identifikace osob, avšak není snadno rozšiřitelná pro jiné účely a opět vyžaduje internetové připojení.
+    \item \textbf{CamScanner} a \textbf{Adobe Scan} se specializují na digitalizaci dokumentů, ale neumožňují detekci ani rozpoznávání obličejů a neposkytují real-time analýzu živého obrazu z kamery.
+    \item \textbf{Snapchat / Instagram} využívají detekci obličejů pro filtry, nikoliv však pro rozpoznávání nebo analytické účely.
+\end{itemize}
+Oproti těmto řešením má vyvinutá aplikace výhodu v kombinaci několika funkcí do jednoho celku, schopnosti pracovat offline a jednoduché možnosti rozšíření o nové algoritmy nebo databáze.
+\section{Přínos a využití}
+Aplikace má široký aplikační potenciál:
+\begin{itemize}
+    \item \textbf{Bezpečnost} – přístupové systémy založené na rozpoznávání obličeje.
+    \item \textbf{Asistence} – automatická identifikace osob pro uživatele s poruchami paměti nebo pro přístupové systémy.
+    \item \textbf{Firemní nasazení} – docházkové systémy nebo evidence osob.
+    \item \textbf{Výzkum a vývoj} – platforma pro experimentování s dalšími TFLite modely (emoce, věk, SPZ, QR kódy).
+    \item \textbf{Finance} – detekce a klasifikace bankovek pomocí specializovaného modelu.
+\end{itemize}
+Nativní Android architektura aplikace umožňuje přímé využití všech Android Jetpack komponent a případné rozšíření o další TFLite modely nebo detekční algoritmy bez přechodových vrstev.
+\section{Možnosti dalšího rozvoje}
+Další rozvoj aplikace může směřovat do několika oblastí:
+\begin{itemize}
+    \item Integrace rozpoznávání emocí, věku a pohlaví.
+    \item Podpora rozpoznávání objektů, SPZ, QR kódů a dalších vizuálních prvků.
+    \item Rozšíření o rozpoznávání textu na SPZ nebo etiketách pomocí ML Kit Text Recognition.
+    \item Možnost učení na zařízení a adaptivního vylepšování modelu podle zpětné vazby.
+    \item Využití rozšířené reality pro interaktivní vizualizaci detekovaných informací.
+    \item Cloudová synchronizace embeddingů a databází pro více zařízení.
+\end{itemize}
+\section{Shrnutí}
+Práce prokázala, že moderní technologie jako Kotlin, CameraX \cite{camerax2024}, Google ML Kit \cite{googlemlkit2024} a TensorFlow Lite \cite{tensorflow2015whitepaper} lze efektivně kombinovat pro tvorbu výkonných mobilních aplikací v oblasti počítačového vidění. Výsledná aplikace FaceDemo je funkční, efektivní a bezpečná -- připravená pro reálné nasazení i další vývoj.
+
+Z~hlediska přínosu práce byla získána praktická zkušenost s~výběrem vývojových nástrojů, implementací geometrických deskriptorů pro rozpoznávání obličejů \cite{wang2021survey}, nasazením TFLite modelů na Android a návrhem přívětivého uživatelského rozhraní. Implementace šifrování AES-256-GCM \cite{nist2001aes} v~kombinaci s~Android Keystore \cite{androidkeystore2024} zajišťuje soulad s~požadavky GDPR \cite{gdpr2016} na ochranu biometrických dat.
+
+Aplikace se tak může stát nejen základem pro další výzkum či komerční nasazení, ale také ukázkou možnosti efektivního nasazení umělé inteligence \cite{goodfellow2016deeplearning} přímo v~mobilních zařízeních bez nutnosti externí infrastruktury.
+\printbibliography[title={Použitá literatura}, heading=bibintoc]
+\listoffigures
+\chapter*{Odkaz na GitHub repozitář}
+\addcontentsline{toc}{chapter}{Odkaz na GitHub repozitář}
+Všechny zdrojové kódy této aplikace můžete nalézt v GitHubovém adresáři:\newline
+\url{https://github.com/JakubKacerek/BP_TUL_25}
+\newline
+\newline
+Při jazykové a stylistické úpravě textu této bakalářské práce jsem využil asistenci nástrojů umělé inteligence ChatGPT 4.0 (OpenAI) a Grok 3.0 (xAI). Tyto nástroje byly použity výhradně pro formulaci a zpřesnění již existujícího obsahu vytvořeného autorem, nikoliv pro generování odborného obsahu nebo analýz.
+
+\end{document}
+
+Dáváte-li přednost pdf\LaTeX u (což byste rozhodně neměli dělat, používejte raději
+moderní implementace \XeLaTeX\ nebo Lua\LaTeX), změní se úvodní skupina příkazů na:
+
+\begin{listing}
+\begin{verbatim}
+\documentclass[FM,DP]{tulthesis}
+\usepackage[czech]{babel}
+\usepackage[utf8]{inputenc}
+\end{verbatim}
+\end{listing}
+
+Kompletní příklad použití třídy najdete ve zdrojovém textu tohoto dokumentu,
+který je součástí distribuce vizuálního stylu TUL pro \LaTeX.
+
+
+\chapter{Závislosti a instalace}
+
+Snažil jsem se, aby závislosti třídy byly co nejmenší. Třída samotná kromě
+standardních součástí \LaTeX u (třída \argument{report}, balíky
+\argument{ifthen}, \argument{tabularx}) využívá jen balíky \argument{tul} a
+\argument{pdfpages}. Další závislosti ovšem plynou z~použití balíku
+\argument{tul}, podrobnosti najdete v~jeho dokumentaci.
+
+Třída je distribuována v~jednom archivu společně s~balíkem \argument{tul} a
+nemá proto samostatnou instalaci. Sama je tvořena jen souborem
+\emph{tulthesis.cls}, který stačí umístit kamkoli, kde jej vaše instalace
+\LaTeX u najde. 
+
+Oficiální distribuční adresou je
+
+\begin{listing}
+\href{http://www.nti.tul.cz/~satrapa/vyuka/latex-tul/}{\emph{http://www.nti.tul.cz/\textasciitilde satrapa/vyuka/latex-tul/}}
+\end{listing}
+
+
+\chapter{Volby}\label{volby}
+
+Činnost balíku lze ovlivňovat různými volbami. Ty lze rozdělit do několika
+skupin:
+\begin{description}
+\item[Vlastní volby] určují zejména typ práce:
+
+\begin{itemize}
+\item \argumentindex{DP}~-- diplomová práce,
+\item \argumentindex{BP}~-- bakalářská práce (ve skutečnosti nedělá nic,
+protože sazba bakalářské práce je implicitní hodnotou, je zařazena jen pro
+zachování symetrie voleb),
+\item \argumentindex{Dis}~-- disertační práce,
+\item \argumentindex{Teze}~-- teze disertační práce,
+\item \argumentindex{Autoref}~-- autoreferát disertační práce,
+\item \argumentindex{Hab}~-- habilitační práce,
+\item \argumentindex{SP}~-- semestrální práce,
+\item \argumentindex{Proj}~-- projekt.
+\end{itemize}
+
+Kromě nastavení typu práce jsou k dispozici ještě následující volby:
+
+\begin{itemize}
+\item \argumentindex{article}~-- použít pro dokument základní třídu \LaTeX u
+\argument{article}. Je vhodná pro kratší dokumenty (např. autoreferát nebo
+teze).
+\item \argumentindex{report}~-- použít pro dokument základní třídu \LaTeX u
+\argument{report} (ve skutečnosti nedělá nic, toto je výchozí nastavení).
+\end{itemize}
+
+\item[Volby balíku \argument{tul}] jsou předány tomuto balíku. Zde uvedu jen
+ty, které mají na vzhled práce přímý dopad:
+
+\begin{itemize}
+\item \argumentindex{FS},
+\argumentindex{FT},
+\argumentindex{FP},
+\argumentindex{EF},
+\argumentindex{FA},
+\argumentindex{FM},
+\argumentindex{FZS} a
+\argumentindex{CXI}~-- určují fakultu, na které práce vzniká; mají dopad jednak na
+titulní stránku, jednak na volbu fakultní barvy. Neuvedete-li žádnou fakultní
+volbu, použije se styl celé univerzity.
+
+\item \argumentindex{EN}~-- práce je v angličtině. Projeví se na jazyku titulní
+stránky a prohlášení v \prikaz{ThesisStart}.
+
+\item \argumentindex{bw}~-- sází se černobíle, titulní stránka a nadpisy částí
+textu nebudou používat barvy. Lze předpokládat, že tato volba bude
+u~absolventských prací dost obvyklá.
+
+\item \argumentindex{fonts}~-- použít písma podle vizuální identity TUL. Bez
+této volby ponechá výchozí písma \LaTeX u.
+\end{itemize}
+
+\item[Volby třídy \argument{report} (resp. \argument{article})] se předají této
+třídě a mají standardní dopad. V~základu se třída volá s~volbami
+\argument{a4paper} a \argument{12pt}, protože práce se standardně sázejí
+dvanáctibodovým písmem na papír formátu A4. Tyto dvě volby jsou pevné,
+případnými dalšími můžete ovlivnit chování třídy, například nastavit
+oboustranný tisk nebo způsob zarovnání matematických vzorců.
+
+\end{description}
+
+
+\chapter{Příkazy a prostředí}
+
+V~této kapitole najdete přehled příkazů a prostředí poskytovaných třídou
+\argument{tulthesis}. Nejsou řazeny abecedně (na to je jich příliš málo), ale
+v~pořadí, které odpovídá pořadí jejich použití v~dokumentu.
+
+
+\section{Příkazy pro preambuli}\label{deklarace}
+
+Cílem této skupiny příkazů je definovat důležité popisné informace o~práci.
+
+\begin{description}
+
+\item[\prikaz{TULtitle}\argument{\{\emph{název práce česky}\}\{\emph{anglicky}\}}]
+definuje název práce. První argument obsahuje jeho českou verzi, druhý verzi
+anglickou. Povinný příkaz.
+
+\item[\prikaz{TULprogramme}\argument{\{\emph{kód programu}\}\{\emph{název
+programu česky}\}\{\emph{anglicky}\}}] definuje kód a název studijního
+programu, v~jehož rámci je práce vytvořena. Kód je pro obě jazykové verze
+shodný, proto se zadává samostatným parametrem. Povinný příkaz kromě
+habilitačních prací.
+
+\item[\prikaz{TULbranch}\argument{\{\emph{kód oboru}\}\{\emph{název
+oboru česky}\}\{\emph{anglicky}\}}] definuje kód a název studijního oboru,
+v~jehož rámci je práce vytvořena. Povinný příkaz pro habilitační práce, kde
+obsahuje obor habilitačního řízení. Pro ostatní typy prací je nepovinný, ale
+může se vyskytnout i vícekrát~-- pokud student studuje kombinaci několika oborů
+(typické pro FP), uvede po jednom příkazu \prikaz{TULbranch} pro každý obor.
+
+\item[\prikaz{TULauthor}\argument{\{\emph{jméno autora}\}}] definuje titul a jméno autora
+práce. Povinný příkaz.
+
+\item[\prikaz{TULsupervisor}\argument{\{\emph{jméno vedoucího}\}}] definuje titul a jméno
+vedoucího práce. Povinný příkaz kromě habilitačních prací.
+
+\item[\prikaz{TULconsultant}\argument{\{\emph{jméno konzultanta}\}}] definuje
+titul a jméno konzultanta práce, pokud byl určen. Nepovinný příkaz. Lze jej
+použít vícekrát, jestliže má práce více konzultantů.
+
+\item[\prikaz{TULyear}\argument{\{\emph{rok vytvoření práce}\}}] definuje rok, ve kterém
+práce vznikla. Příkaz je nepovinný, pokud jej vynecháte, doplní se při překladu
+automaticky aktuální rok. Přesto doporučuji jej použít, jinak by při případném
+pozdějším překladu mohla vzniknout iluze, že práce vznikla v~pozdějším roce,
+než ve skutečnosti.
+
+\item[\prikaz{TULthesisType}\argument{\{\emph{typ práce česky}\}\{\emph{anglicky}\}}]
+umožňuje definovat jiný typ práce, než na které pamatují volby balíku
+\argument{BP}, \argument{DP} a další. V~prvním argumentu uveďte český
+název typu práce, ve druhém jeho anglický ekvivalent. Například pro výzkumnou
+zprávu by preambule obsahovala
+
+\begin{listing}
+\begin{verbatim}
+\TULthesisType{Výzkumná zpráva}{Research report}
+\end{verbatim}
+\end{listing}
+
+\end{description}
+
+
+\section{Příkazy a prostředí pro tělo práce}
+
+Tyto příkazy a prostředí generují viditelný výstup a sází jednotlivé
+součásti, především pro úvodní partie práce.
+
+\begin{description}
+
+\item[\prikaz{ThesisStart}\argument{\{\emph{rod}\}}] v závislosti na parametru
+buď vygeneruje, nebo vloží standardní zahájení práce~-- titulní list, zadání a
+prohlášení o~autorství a autorských právech. Parametr \argument{\emph{rod}} má
+v základní podobě hodnotu \argument{female} nebo \argument{male} a určuje, zda
+bude prohlášení uvedeno v~rodě ženském nebo mužském. Interně se uvnitř volá
+níže uvedená trojice příkazů.
+
+Pro bakalářské a diplomové práce jsou v současnosti úvodní stránky generovány
+IS STAG. Chcete-li je použít, předejte příkazu jako parametr \emph{rod} název
+PDF souboru. \prikaz{ThesisStart} pak jednoduše vloží jeho obsah. Podrobnosti
+najdete v části~\ref{stag} na straně~\pageref{stag}.
+
+\item[\prikaz{ThesisTitle}\argument{\{\emph{jazyk}\}}] vygeneruje titulní list práce.
+Informace čerpá z~výše uvedených deklaračních příkazů \prikaz{TULtitle} a spol.
+Argument určuje, jaká jazyková verze se má vysázet. K dispozici je česká
+(hodnota \argument{CZ}) a anglická (\argument{EN}) verze titulního listu. Pokud
+použijete \prikaz{ThesisStart}, nemusí vás zajímat~-- je určen pro situace, kdy
+vám standardní zahájení práce nevyhovuje a chcete je nějakým způsobem upravit.
+
+\item[\prikaz{Assignment}] vygeneruje prázdný list, který se v~práci nahradí
+originálem jejího zadání. Má dva účely: upomíná, abyste nezapomněli vložit
+zadání, a zajišťuje správné číslování stránek (list se zadáním se počítá mezi
+stránky práce, přestože na něm číslo není uvedeno). Pokud použijete
+\prikaz{ThesisStart}, nemusí vás zajímat~-- je určen pro situace, kdy vám
+standardní zahájení práce nevyhovuje a chcete je nějakým způsobem upravit.
+
+\item[\prikaz{Declaration}\argument{\{\emph{rod}\}}] vygeneruje prohlášení o~autorství a
+autorských právech. Parametr \argument{\emph{rod}} má hodnotu
+\argument{female} nebo \argument{male} a určuje, zda bude prohlášení uvedeno
+v~rodě ženském nebo mužském. Pokud použijete \prikaz{ThesisStart}, nemusí vás
+zajímat~-- je určen pro situace, kdy vám standardní zahájení práce nevyhovuje a
+chcete je nějakým způsobem upravit.
+
+\item[\prostredi{abstractCZ}] je prostředí pro sazbu českého abstraktu práce.
+Nedělá mnoho~-- vysází český název práce, nadpis „Abstrakt“ a zúží řádek,
+protože abstrakty obvykle bývají krátké a na plnou šířku řádku nevypadají
+dobře. Je-li váš abstrakt dlouhý, použijte nepovinný argument \argument{wide},
+který vynechá zúžení a sází abstrakt na celou šířku řádku:
+
+\begin{listing}
+\begin{verbatim}
+\begin{abstractCZ}[wide]
+Široký text abstraktu.
+\end{abstractCZ}
+\end{verbatim}
+\end{listing}
+
+Volba \argument{wide} je k dispozici pro všechna čtyři prostředí zajišťující
+sazbu abstraktu a klíčových slov. Používejte ji konzistentně~-- u všech nebo u
+žádného.
+
+\item[\prostredi{abstractEN}] je prostředí pro sazbu anglického abstraktu práce.
+Od \argument{abstractCZ} se liší jen anglickým názvem práce a nadpisem.
+
+\item[\prostredi{keywordsCZ}] je prostředí pro sazbu českých klíčových slov.
+Podobně jako abstrakt vysází nadpis „Klíčová slova“ a zúží řádek. Opět je k
+dispozici volba \argument{wide}, která řádky nezužuje. Předpokládá se, že
+klíčová slova následují vždy za abstraktem.
+
+\item[\prostredi{keywordsEN}] je prostředí pro sazbu anglických klíčových slov.
+Od \argument{keywordsCZ} se liší jen anglickým nadpisem.
+
+\item[\prostredi{acknowledgement}] je prostředí pro poděkování. Opět se chová
+stejně~-- vysází nadpis „Poděkování“ a sází svůj obsah do užších řádků, pokud
+nepoužijete nepovinný argument \argument{wide}.
+
+\item[\prostredi{abbrList}] je prostředí pro sazbu seznamu zkratek. Obsah
+seznamu zkratek je koncipován jako tabulka se dvěma sloupci. Zkratku od popisu
+proto oddělte znakem \argument{\&} a popis zakončete
+\argument{\textbackslash\textbackslash}. Použití vypadá nějak takto:
+
+{\color{\tulcolor}
+\begin{verbatim}
+\begin{abbrList}
+HTML & HyperText Markup Language \\
+CSS & Cascading Style Sheets \\
+\end{abbrList}
+\end{verbatim}}
+
+Seznam zkratek je nejproblémovější konstrukcí a pokud jeho rozsah překročí
+stránku, nelze prostředí \argument{abbrList} použít. Podrobnější informace
+najdete v~části~\ref{zkratky}.
+
+\end{description}
+
+
+\chapter{Závěrečné poznámky}
+
+Několik poznámek a povzdechů závěrem.
+
+
+\section{Úvodní stránky generované IS STAG}\label{stag}
+
+V současnosti jsou úvodní stránky bakalářských a diplomových prací (titulní
+strana, zadání a autorské prohlášení) generovány IS STAG. Na začátek práce se
+jednoduše vloží. V tom případě se nemusíte zatěžovat deklaracemi popsanými v
+kapitole~\ref{deklarace} na straně~\pageref{deklarace}. Z nich stačí použít jen
+\prikaz{TULtitle}, protože název práce se používá v abstraktu.
+
+
+
+
+\section{Habilitační práce}\label{habilitace}
+
+Třída \argument{tulthesis} původně vznikla pro bakalářské a diplomové práce a
+postupně se rozšiřoval sortiment podporovaných typů prací. Jsou vesměs dost
+konzistentní, zadávají se pro ně obdobné údaje a generují podobné stránky.
+Výrazně odlišné jsou práce habilitační~-- nemají vedoucího ani zadání, liší se
+autorské prohlášení a podobně.
+
+Pokud použijete volbu \argumentindex{Hab}, velmi se zjednoduší úvodní
+deklarace. Stačí uvést název, autora, obor a rok vzniku práce. Obor
+habilitačního řízení nemívá přiřazen kód a může chybět i jeho název v
+angličtině. Příslušné parametry příkazu \prikaz{TULbranch} ale musí být
+uvedeny, i když jsou prázdné.
+
+Zahájení habilitační práce může vypadat například nějak takto:
+
+\begin{listing}
+\begin{verbatim}
+\documentclass[FM,Hab]{tulthesis}
+\TULtitle{Stochastické řízení}{Stochastic control}
+\TULbranch{}{Technická kybernetika}{Technical cybernetics}
+\TULauthor{Ing. Jan Řidič, Ph.D.}
+\TULyear{2021}
+\end{verbatim}
+\end{listing}
+
+
+\section{Kombinace s~dalšími balíky}
+
+Snažil jsem se spíše o~minimalistický přístup, aby třída nedělala víc než musí
+a pokud možno se nepletla do cesty různým balíkům. Její činnost, která by
+mohla mít dopady na kompatibilitu s~dalšími balíky, se omezuje na:
+
+\begin{itemize}
+\item Nastavení velikosti papíru a okrajů. K~tomu se používají standardní
+prostředky \LaTeX u~-- volba \argument{a4paper} a rozměry
+\prikazneindex{oddsidemargin} a spol.
+
+\item Nastavení zápatí stránky prostřednictvím balíku \argument{fancyhdr}.
+Chcete-li zasahovat do záhlaví nebo zápatí stránek, dělejte to příkazy tohoto
+balíku.
+
+\item Změna formátu nadpisu kapitol pomocí balíku \argument{titlesec}. Opět,
+pokud vám nevyhovuje, využijte nástroje poskytované tímto balíkem ke změně.
+
+\end{itemize}
+
+Nasazení dalších balíků a nástrojů pro změnu vzhledu dokumentu či rozšíření
+možností sazby by nemělo stát nic v~cestě. Nechávám to na vás.
+
+Například jsem rezignoval na nastavení konkrétního písma pro sazbu práce,
+protože písmo a způsob jeho volby závisí jak na písmech dostupných ve vašem
+systému, tak na konkrétní variantě \LaTeX u, kterou používáte. Sázíte-li
+pdf\-\LaTeX\-em, můžete sáhnout po některém ze standardních balíků typu
+\argument{palatino} či \argument{newcent}. Pokud používáte \XeLaTeX, máte
+k~dispozici balík \argument{fontspec}.
+
+
+\section{Seznam zkratek}\label{zkratky}
+
+Upřímně řečeno, pro seznam zkratek jsem nenašel dobré řešení. Asi nejvhodnější
+je použít dvousloupcovou tabulku, v~jejímž levém sloupci se nacházejí zkratky a
+v~pravém jejich významy. Problém spočívá v~omezenosti tabulkového modelu
+v~\LaTeX u, který neumí automaticky přizpůsobit šířku tabulky stránce a neumí
+rozdělit tabulku na několik stránek. Pochopitelně existují rozšiřující balíky,
+které to dokážou, ale nikoli oboje najednou.
+
+Vzhledem k~tomu, že ve většině prací seznam zkratek nepřekročí rozsah jedné
+stránky, dal jsem při definici prostředí \argument{abbrList} přednost variantě
+s~jednodušším použitím, ovšem omezené na jednu stránku: použití balíku
+\argument{tabularx}, který implementuje tabulky s~adaptivními odstavcovými
+sloupci.
+
+Je-li zkratek mnoho, nelze použít připravené prostředí a je třeba vytvořit
+seznam vlastními silami. Začněte nadpisem, který by neměl být číslován, ale
+rozhodně by měl být zařazen do obsahu, takže
+
+\begin{listing}
+\begin{verbatim}
+\section*{Seznam zkratek}
+\addcontentsline{toc}{section}{Seznam zkratek}
+\end{verbatim}
+\end{listing}
+
+Za ním následuje vlastní seznam, který lze řešit například jako vícestránkovou
+tabulku. V~tom případě přidejte do preambule dokumentu
+
+\begin{listing}
+\begin{verbatim}
+\usepackage{longtable}
+\end{verbatim}
+\end{listing}
+
+a vlastní seznam zahajte konstrukcí
+
+\begin{listing}
+\begin{verbatim}
+\noindent\begin{longtable}[l]{@{}lp{12cm}@{}}
+\end{verbatim}
+\end{listing}
+
+Tělo seznamu tvoří opět dvousloupcová tabulka, kde se šířka prvního sloupce
+určí automaticky podle nejširší zkratky a šířka druhého je pevně dána, zde
+12~cm. Podle konkrétního obsahu musíte najít vhodnou hodnotu, aby seznam
+zabíral (zhruba) celou šířku řádku. Jestliže žádná zkratka nemá význam delší
+než jeden řádek, můžete si ušetřit trápení a konstrukci \argument{p\{12cm\}}
+v~definici sloupců výše nahradit druhým \argument{l}. Tělo seznamu zakončete
+
+\begin{listing}
+\begin{verbatim}
+\end{longtable}
+\end{verbatim}
+\end{listing}
+
+Jinou alternativou, která by se mohla hodit i u~kratších seznamů, pokud se
+délky jednotlivých zkratek výrazně liší, je rezignovat na tabulky a vysázet
+seznam zkratek prostřednictvím standardního prostředí \argument{description}.
+Tedy něco jako
+
+\begin{listing}
+\begin{verbatim}
+\section*{Seznam zkratek}
+\addcontentsline{toc}{section}{Seznam zkratek}
+
+\begin{description}
+\item[HTML] HyperText Markup Language
+\item[CSS] Cascading Style Sheets
+\end{description}
+\end{verbatim}
+\end{listing}
+
+Vzhledem k~popsaným problémům jsem zvažoval, zda seznam zkratek do třídy vůbec
+přidávat. Nakonec jsem tak udělal především proto, abych zdůraznil, že se jedná
+de facto o~povinnou součást absolventských prací.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Jak naložit s citacemi?}
+
+Při psaní závěrečných prací na TUL je směrnicí rektora č. 5/2018 (rev. 03) třeba využít citační normu ČSN ISO 690 (2022) \cite{csniso690_2022}. Komentované příklady a interpretace této normy jsou  přehledně zpracovány česky i anglicky v práci Zizienová a kol.  a v projektu projektu \hyperlink{citace.com}{citace.com} \cite{Zizienova2023CZ,Zizienova2023EN,webCitaceCOM}.
+
+Pracovat s citacemi je možné v \LaTeX{}u několika způsoby: 
+\begin{enumerate}
+  \item Vytvoření seznamu pomocí prostředí: 
+  \begin{listing}
+  \begin{verbatim}
+  \begin{thebibliography}{}
+    \bibitem{}
+   
+  \end{thebibliography}
+  \end{verbatim}
+  \end{listing}
+  \item Využití Bib\TeX{}u a databází citací v souboru \argument{*.bib}.
+  \item Využití novějšího způsobu použitím Bib\LaTeX{}u tak, jak je to použito v tomto příkladu. Jedná se o podobný postup jako v případě Bib\TeX{}u, citační záznamy jsou uloženy v souboru \argument{*.bib}, ale s podstatně větším množstvím funkcí. 
+\end{enumerate}
+
+\textbf{Jak získat databázové položky do \argument{*.bib} souboru?} Existuje celá řada způsobů, jak si vytvářet citační záznamy (\href{www.jabref.org}{JabRef} \cite{webJabRef}, \href{https://www.zotero.org}{Zotero} \cite{webZotero}, \href{https://www.mendeley.com}{Mendeley} \cite{webMendeley}, \href{https://endnote.com}{EndNote} \cite{webEndNote} atd.). Efektivní způsob pro studenty TUL je však použití českého projektu \href{citacepro.com}{citacepro.com} \cite{webCitaceCOM}. Do této PRO verze mají zaměstnanci a studenti TUL přístup zdarma. Citační záznamy lze jednoduše exportovat do \emph{Bib\LaTeX-formátu}. 
+
+\paragraph{}
+\textbf{Jak byl použit třetí jmenovaný způsob v tomto dokumentu?}
+V hlavičce dokumentu je doplněn oproti původnímu \argument{manual-tulthesis.tex} tento kód:
+\begin{listing}
+\begin{verbatim}
+\usepackage[ 
+    backend=biber
+    % ,style=iso-authoryear % styl vyžaduje FZS TUL, 
+    % místo příkazu \cite{} je potřeba využít 
+    % \parencite{} (sazba kulatých závorek) / 
+    % style required by FZS TUL use 
+    % \parencite{} instead of \cite{}
+    ,style=iso-numeric
+    %,style=numeric
+    %,sortlocale=cs_CZ
+    ,autolang=other
+    ,bibencoding=UTF8
+    %,urldate=edtf
+    ,maxcitenames=2 % maximum v textu citovaných jmen
+    ,maxbibnames=3 % maximum v seznamu vyjmenovaných 
+    % autorů
+    ]{biblatex}
+\addbibresource{refTULTHESIS.bib}
+\end{verbatim}
+\end{listing}
+Pro sazbu podle ČSN ISO 690 s použitím Bib\LaTeX{}u je využitý standardní balík \argument{biblatex-iso690} s drobnou úpravou souboru \argument{iso-numeric.bbx}, aby se čísla seznamu vysázela v hranatých závorkách. Podrobnosti o tomto balíku je možné se dočíst v dokumentaci \cite{webBiblatex-ISO690}.
+
+K sazbě seznamu \textit{Použitá literatura} a pro vložení tohoto nadpisu do obsahu jsou využity následující řádky:
+\begin{listing}
+\begin{verbatim}
+\printbibliography[title={Použitá literatura}] 
+\addcontentsline{toc}{chapter}{Použitá literatura}     
+\end{verbatim}
+\end{listing}
+
+Závěrem je vhodné zmínit pár literárních zdrojů pro efektivnější psaní s touto šablonou a samozřejmě vyzkoušet způsob citování. Mezi první patří manuál k balíku \argument{tulthesis} P. Satrapy \cite{Satrapa2022tulthesis} a jeho příručka \textit{\LaTeX\  pro pragmatiky}~\cite{Satrapa2023LatexPragmatiky}. \textit{Metodika pro psaní bakalářských a diplomových prací} Z. Plívy a kol. \cite{Pliva2023DOKcz} (anglicky \cite{Pliva2024DOKen}) byla zpracována původně pro studenty Fakulty mechatroniky, ale svým zpracováním univerzální a její platnost tak přesahuje i na ostatní součásti TUL. 
+
+\chapter*{Závěr}
+\addcontentsline{toc}{chapter}{Závěr}
+
+Ve zdrojovém kódu je naznačeno, jak vysázet nadpis úrovně kapitola bez čísla a zároveň vložit odkaz do obsahu. \cite{12331}
+%\nocite{*}
+% Aplikace biblatexu a stylu citování ČSN ISO 690, 
+% soubor refPsaniTextuNEW.bib je vložen v hlavičce dokumentu
+
+\printbibliography[title={Použitá literatura},heading=bibintoc] % sazba seznamu citací a vložení do obsahu 
+% \printbibliography[title={References},heading=bibintoc] 
+
+ \addcontentsline{toc}{chapter}{References} 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\renewcommand{\indexname}{Přehled příkazů, prostředí a voleb}
+\printindex
+
+\appendix % začátek příloh / beginning of appendiecies
+\chapter{Přílohy}
+\section{Obsah vloženého balíku do IS/STAG TUL} % příklad přílohy 
+\begin{itemize}
+    \item Text práce
+    \item Obrazová dokumentace
+    \item Zdrojové kódy
+    \item \dots
+\end{itemize}
+
+\section{Velké tabulky a obrázky} % příklad přílohy 
+
+\end{document}

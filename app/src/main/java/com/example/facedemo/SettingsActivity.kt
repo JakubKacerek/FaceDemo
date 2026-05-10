@@ -9,8 +9,6 @@ import androidx.core.content.edit
 class SettingsActivity : AppCompatActivity() {
 
     private val DETECTION_PREFS = "detection_settings"
-    private val KEY_SMILE_DETECTION = "smile_detection_enabled"
-    private val KEY_EYES_DETECTION = "eyes_detection_enabled"
     private val KEY_DEBUG_MODE = "debug_mode_enabled"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,34 +17,12 @@ class SettingsActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences(DETECTION_PREFS, MODE_PRIVATE)
 
-        val btnToggleSmile = findViewById<Button>(R.id.btnToggleSmileDetection)
-        val btnToggleEyes = findViewById<Button>(R.id.btnToggleEyesDetection)
         val btnToggleDebug = findViewById<Button>(R.id.btnToggleDebugMode)
         val btnClearNames = findViewById<Button>(R.id.btnClearNames)
 
-        // Načti aktuální stav
-        var smileEnabled = prefs.getBoolean(KEY_SMILE_DETECTION, true)
-        var eyesEnabled = prefs.getBoolean(KEY_EYES_DETECTION, true)
         var debugEnabled = prefs.getBoolean(KEY_DEBUG_MODE, false)
 
-        // Nastavení tlačítek
-        updateButtonText(btnToggleSmile, smileEnabled, "Smile Detection")
-        updateButtonText(btnToggleEyes, eyesEnabled, "Eyes Detection")
         updateButtonText(btnToggleDebug, debugEnabled, "Debug Mode")
-
-        btnToggleSmile.setOnClickListener {
-            smileEnabled = !smileEnabled
-            prefs.edit { putBoolean(KEY_SMILE_DETECTION, smileEnabled) }
-            updateButtonText(btnToggleSmile, smileEnabled, "Smile Detection")
-            Toast.makeText(this, "Smile Detection ${if (smileEnabled) "Enabled" else "Disabled"}", Toast.LENGTH_SHORT).show()
-        }
-
-        btnToggleEyes.setOnClickListener {
-            eyesEnabled = !eyesEnabled
-            prefs.edit { putBoolean(KEY_EYES_DETECTION, eyesEnabled) }
-            updateButtonText(btnToggleEyes, eyesEnabled, "Eyes Detection")
-            Toast.makeText(this, "Eyes Detection ${if (eyesEnabled) "Enabled" else "Disabled"}", Toast.LENGTH_SHORT).show()
-        }
 
         btnToggleDebug.setOnClickListener {
             debugEnabled = !debugEnabled

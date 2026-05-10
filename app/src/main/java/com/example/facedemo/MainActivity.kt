@@ -63,7 +63,9 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var debugPanel: ScrollView
     private lateinit var txtDebugLogs: TextView
+    private lateinit var btnDebugPause: android.widget.Button
     private var debugModeEnabled = false
+    private var debugPaused = false  // accessed only on UI thread → no @Volatile needed
     private var lastDebugFaceLogMs = 0L
     private var lastDebugObjectLogMs = 0L
     private var lastDebugBanknoteLogMs = 0L
@@ -100,6 +102,19 @@ class MainActivity : AppCompatActivity() {
         banknoteOverlay = findViewById(R.id.banknoteOverlay)
         debugPanel = findViewById(R.id.debugPanel)
         txtDebugLogs = findViewById(R.id.txtDebugLogs)
+        btnDebugPause = findViewById(R.id.btnDebugPause)
+        btnDebugPause.setOnClickListener {
+            debugPaused = !debugPaused
+            if (debugPaused) {
+                DebugLogger.unregisterListener(debugListener)   // zastaví přísun nových zpráv
+                btnDebugPause.text = "▶"
+                btnDebugPause.setBackgroundColor(0xFFBB6600.toInt())
+            } else {
+                DebugLogger.registerListener(debugListener)     // obnoví + hned zobrazí aktuální snapshot
+                btnDebugPause.text = "⏸"
+                btnDebugPause.setBackgroundColor(0xFF333333.toInt())
+            }
+        }
 
         previewView.scaleType = PreviewView.ScaleType.FIT_CENTER
 
@@ -580,8 +595,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyDebugUiState() {
-        debugPanel.visibility = if (debugModeEnabled) View.VISIBLE else View.GONE
+        val vis = if (debugModeEnabled) View.VISIBLE else View.GONE
+        debugPanel.visibility = vis
+        btnDebugPause.visibility = vis
         if (debugModeEnabled) {
+            debugPaused = false
+            btnDebugPause.text = "⏸"
+            btnDebugPause.setBackgroundColor(0xFF333333.toInt())
             DebugLogger.registerListener(debugListener)
         } else {
             DebugLogger.unregisterListener(debugListener)

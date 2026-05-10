@@ -39,10 +39,10 @@ class BanknoteDetector(context: Context) {
         private const val MODEL_FILE = "banknote_detector.tflite"
         private const val LABELS_FILE = "banknote_labels.txt"
 
-        // Lower threshold for initial testing — tighten once labels are identified
-        private const val CONFIDENCE_THRESHOLD = 0.35f
-        private const val OBJECTNESS_THRESHOLD = 0.25f
-        private const val CLASS_THRESHOLD = 0.20f
+        // Thresholds tuned for initial calibration — tighten once model scores are known
+        private const val CONFIDENCE_THRESHOLD = 0.04f   // obj*cls combined
+        private const val OBJECTNESS_THRESHOLD = 0.04f   // pre-filter on obj alone
+        private const val CLASS_THRESHOLD      = 0.02f   // pre-filter on cls alone
         private const val NMS_IOU_THRESHOLD = 0.45f
         private const val MAX_DETECTIONS = 20
     }
@@ -53,6 +53,7 @@ class BanknoteDetector(context: Context) {
     private val outputCount: Int
     private var isYoloFormat = false
     private var yoloShapeLogged = false
+    private var rawDiagLogged = false
 
     /** true while the interpreter is busy running inference */
     var isBusy = false
@@ -138,6 +139,18 @@ class BanknoteDetector(context: Context) {
         interpreter.runForMultipleInputsOutputs(arrayOf(input), outputs)
 
         val count   = if (outputCount >= 4) numDets[0].toInt().coerceIn(0, maxDet) else maxDet
+
+        // First-run raw diagnostic
+        if (!rawDiagLogged) {
+            rawDiagLogged = true
+            val topScores = (0 until minOf(count, maxDet))
+                .map { scores[0][it] }
+                .sortedDescending().take(10)
+            val msg = "DIAG SSD top-10 scores: ${topScores.joinToString { "%.3f".format(it) }}"
+            Log.d(TAG, msg)
+            DebugLogger.log(TAG, msg)
+        }
+
         val results = mutableListOf<BanknoteDetection>()
 
         for (i in 0 until count) {
@@ -179,13 +192,44 @@ class BanknoteDetector(context: Context) {
         val numPreds   = if (transposed) dim2 else dim1
         val numCols    = if (transposed) dim1 else dim2
 
-        val hasObjectness = numCols >= labels.size + 5
+        // YOLO v5/v7: output is [cx,cy,w,h, obj, cls0,cls1,...] → numCols = 5 + numClasses
+        // YOLO v8:    output is [cx,cy,w,h, cls0,cls1,...]    → numCols = 4 + numClasses
+        // Resolve by exact match against labels.size; fall back to shape heuristic
+        val hasObjectness = when {
+            numCols == labels.size + 5 -> true   // YOLO v5/v7 exact match
+            numCols == labels.size + 4 -> false  // YOLO v8 exact match
+            else -> numCols >= labels.size + 5   // ambiguous — assume v5/v7 style
+        }.also { DebugLogger.log(TAG, "hasObjectness=$it (numCols=$numCols labels=${labels.size})") }
 
         val rawOut = Array(1) { Array(dim1) { FloatArray(dim2) } }
         interpreter.run(prep.input, rawOut)
 
+        // First-run raw diagnostic — samples top combined scores before any threshold filtering
+        if (!rawDiagLogged) {
+            rawDiagLogged = true
+            val topScores = (0 until minOf(numPreds, 500))
+                .map { i ->
+                    val p = if (transposed) FloatArray(numCols) { c -> rawOut[0][c][i] }
+                            else rawOut[0][i]
+                    if (hasObjectness) {
+                        val obj = normalizeScore(p[4])
+                        val cls = (5 until p.size).maxOfOrNull { j -> normalizeScore(p[j]) } ?: 0f
+                        obj * cls
+                    } else {
+                        (4 until p.size).maxOfOrNull { j -> normalizeScore(p[j]) } ?: 0f
+                    }
+                }
+                .sortedDescending().take(10)
+            val msg = "DIAG YOLO top-10 combined scores: ${topScores.joinToString { "%.3f".format(it) }}"
+            Log.d(TAG, msg)
+            DebugLogger.log(TAG, msg)
+        }
+
         val results = mutableListOf<BanknoteDetection>()
 
+        var skippedObj = 0
+        var skippedConf = 0
+        var maxCombined = 0f   // highest combined score seen this frame regardless of threshold
         for (i in 0 until numPreds) {
             val pred = if (transposed) FloatArray(numCols) { c -> rawOut[0][c][i] } else rawOut[0][i]
             if (pred.size < 5) continue
@@ -195,7 +239,7 @@ class BanknoteDetector(context: Context) {
             var bestClass = -1; var bestScore = 0f
             if (hasObjectness) {
                 val obj = normalizeScore(pred[4])
-                if (obj < OBJECTNESS_THRESHOLD) continue
+                if (obj < OBJECTNESS_THRESHOLD) { skippedObj++; continue }
                 for (j in 5 until pred.size) {
                     val cls = normalizeScore(pred[j])
                     val s   = obj * cls
@@ -208,7 +252,8 @@ class BanknoteDetector(context: Context) {
                 }
             }
 
-            if (bestClass < 0 || bestScore < CONFIDENCE_THRESHOLD) continue
+            if (bestScore > maxCombined) maxCombined = bestScore
+            if (bestClass < 0 || bestScore < CONFIDENCE_THRESHOLD) { skippedConf++; continue }
 
             val label    = labels.getOrElse(bestClass) { "Class_$bestClass" }
             val maxCoord = maxOf(cx, cy, w, h)
@@ -226,8 +271,17 @@ class BanknoteDetector(context: Context) {
 
             if (right <= left || bottom <= top) continue
 
-            DebugLogger.log(TAG, "Hit: $label conf=${"%.2f".format(bestScore)}")
+            DebugLogger.log(TAG, "Hit[cls=$bestClass]: $label conf=${"%.2f".format(bestScore)}")
             results.add(BanknoteDetection(label, bestScore, RectF(left, top, right, bottom)))
+        }
+
+        if (results.isEmpty()) {
+            val msg = if (hasObjectness)
+                "No hits | maxCombined=${"%.4f".format(maxCombined)} | objFail=$skippedObj confFail=$skippedConf (thrs: obj=$OBJECTNESS_THRESHOLD combined=$CONFIDENCE_THRESHOLD)"
+            else
+                "No hits | maxScore=${"%.4f".format(maxCombined)} | confFail=$skippedConf (thr=$CONFIDENCE_THRESHOLD)"
+            Log.d(TAG, msg)
+            DebugLogger.log(TAG, msg)
         }
 
         return nms(results.sortedByDescending { it.confidence }).take(MAX_DETECTIONS)

@@ -13,27 +13,6 @@
         android:layout_gravity="center_horizontal"
         android:layout_marginBottom="32dp"/>
 
-    <TextView
-        android:text="Detection Settings"
-        android:textSize="18sp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"/>
-
-    <Button
-        android:id="@+id/btnToggleSmileDetection"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Smile Detection: ON"
-        android:layout_marginBottom="12dp"/>
-
-    <Button
-        android:id="@+id/btnToggleEyesDetection"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Eyes Detection: ON"
-        android:layout_marginBottom="12dp"/>
-
     <Button
         android:id="@+id/btnToggleDebugMode"
         android:layout_width="match_parent"
